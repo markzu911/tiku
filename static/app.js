@@ -1118,18 +1118,35 @@ function renderPaperBuilder() {
     const selectedTypes = paperBuilderSelections[categoryName] || [];
     const card = document.createElement("article");
     card.className = "paper-type-group";
+
+    const selectedText = selectedTypes.length
+      ? selectedTypes.map(t => t.length > 8 ? t.substring(0, 8) + '...' : t).join('\u3001')
+      : '\u8bf7\u9009\u62e9\u9898\u578b';
+
     card.innerHTML = `
-      <div class="paper-type-group-head"><div><h3>${escapeHtml(categoryName)}</h3><p>${typeCounts.length} \u4e2a\u7ec6\u9898\u578b</p></div><span>${selectedTypes.length} / ${typeCounts.length}</span></div>
-      <div class="paper-type-options">
+      <div class="paper-type-group-head"><div><h3>${escapeHtml(categoryName)}</h3><p>${typeCounts.length} \u4e2a\u7ec6\u9898\u578b</p></div><span>${selectedTypes.length ? `\u5df2\u9009 ${selectedTypes.length} \u4e2a` : "\u672a\u9009"}</span></div>
+      <div class="paper-type-selector">
         ${
           typeCounts.length
-            ? typeCounts
-                .map(([questionType, count]) => {
-                  const key = getPaperBuilderKey(categoryName, questionType);
-                  const checked = selectedTypes.includes(questionType);
-                  return `<label class="paper-type-option"><input type="checkbox" data-category-name="${escapeHtml(categoryName)}" value="${escapeHtml(questionType)}"${checked ? " checked" : ""} /><span class="paper-type-option-name">${escapeHtml(questionType)}<small>${count} \u9053\u9519\u9898</small></span><span class="paper-type-count-control"><input type="number" min="1" max="20" value="${getPaperBuilderCount(categoryName, questionType)}" data-count-key="${escapeHtml(key)}" ${checked ? "" : "disabled"} /><em>\u9898</em></span></label>`;
-                })
-                .join("")
+            ? `<div class="paper-custom-multiselect">
+                <button type="button" class="paper-multiselect-trigger" data-category-name="${escapeHtml(categoryName)}">
+                  <span class="paper-multiselect-value">${escapeHtml(selectedText)}</span>
+                  <span class="paper-multiselect-arrow">\u25bc</span>
+                </button>
+                <div class="paper-multiselect-dropdown" hidden>
+                  ${typeCounts.map(([questionType, count]) => {
+                    const isChecked = selectedTypes.includes(questionType);
+                    return `<label class="paper-multiselect-option">
+                      <input type="checkbox" value="${escapeHtml(questionType)}" ${isChecked ? 'checked' : ''} />
+                      <span>${escapeHtml(questionType)} <em>(${count}\u9053)</em></span>
+                    </label>`;
+                  }).join('')}
+                </div>
+              </div>
+              <div class="paper-type-counts-list">${selectedTypes.map(questionType => {
+                const key = getPaperBuilderKey(categoryName, questionType);
+                return `<label class="paper-type-count-item"><span>${escapeHtml(questionType)}:</span><span class="paper-type-count-control"><input type="number" min="1" max="20" value="${getPaperBuilderCount(categoryName, questionType)}" data-count-key="${escapeHtml(key)}" /><em>\u9898</em></span></label>`;
+              }).join('')}</div>`
             : '<div class="type-check-empty">\u6682\u65e0\u53ef\u7528\u9519\u9898</div>'
         }
       </div>
@@ -1583,14 +1600,43 @@ exportPaperPdfBtn.addEventListener("click", () => {
   window.print();
 });
 paperBuilderGroups.addEventListener("change", (event) => {
-  const checkbox = event.target.closest('input[type="checkbox"][data-category-name]');
+  const checkbox = event.target.closest('.paper-multiselect-option input[type="checkbox"]');
   if (checkbox) {
-    const selected = new Set(paperBuilderSelections[checkbox.dataset.categoryName] || []);
-    if (checkbox.checked) selected.add(checkbox.value);
-    else selected.delete(checkbox.value);
-    paperBuilderSelections[checkbox.dataset.categoryName] = [...selected];
+    const dropdown = checkbox.closest('.paper-multiselect-dropdown');
+    const trigger = dropdown.previousElementSibling;
+    const categoryName = trigger.dataset.categoryName;
+    const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+    const selectedTypes = [...checkboxes]
+      .filter(cb => cb.checked)
+      .map(cb => cb.value);
+
+    paperBuilderSelections[categoryName] = selectedTypes;
+
+    // 更新触发按钮的显示文本
+    const selectedText = selectedTypes.length
+      ? selectedTypes.map(t => t.length > 8 ? t.substring(0, 8) + '...' : t).join('、')
+      : '请选择题型';
+    trigger.querySelector('.paper-multiselect-value').textContent = selectedText;
+
+    // 更新状态标签
+    const statusBadge = trigger.closest('.paper-type-group').querySelector('.paper-type-group-head span');
+    if (statusBadge) {
+      statusBadge.textContent = selectedTypes.length ? `已选 ${selectedTypes.length} 个` : "未选";
+    }
+
+    // 更新数量配置列表
+    const countsList = dropdown.parentElement.nextElementSibling;
+    if (countsList && countsList.classList.contains('paper-type-counts-list')) {
+      countsList.innerHTML = selectedTypes.map(questionType => {
+        const key = getPaperBuilderKey(categoryName, questionType);
+        return `<label class="paper-type-count-item"><span>${escapeHtml(questionType)}:</span><span class="paper-type-count-control"><input type="number" min="1" max="20" value="${getPaperBuilderCount(categoryName, questionType)}" data-count-key="${escapeHtml(key)}" /><em>题</em></span></label>`;
+      }).join('');
+    }
+
     paperBuilderGeneratedQuestions = [];
-    renderPaperBuilder();
+    generatePaperQuestionsBtn.disabled = getSelectedPaperBuilderPairs().length === 0;
+
+    // 不要关闭下拉框，让用户可以继续选择
     return;
   }
   const countInput = event.target.closest('input[data-count-key]');
@@ -1598,6 +1644,31 @@ paperBuilderGroups.addEventListener("change", (event) => {
     paperBuilderCounts[countInput.dataset.countKey] = Math.max(1, Math.min(20, Number.parseInt(countInput.value, 10) || 5));
     paperBuilderGeneratedQuestions = [];
     renderPaperBuilder();
+  }
+});
+
+paperBuilderGroups.addEventListener("click", (event) => {
+  const trigger = event.target.closest('.paper-multiselect-trigger');
+  if (trigger) {
+    const dropdown = trigger.nextElementSibling;
+    const isHidden = dropdown.hidden;
+
+    // 关闭所有其他下拉框
+    document.querySelectorAll('.paper-multiselect-dropdown').forEach(d => {
+      if (d !== dropdown) d.hidden = true;
+    });
+
+    dropdown.hidden = !isHidden;
+    return;
+  }
+});
+
+// 点击外部关闭下拉框
+document.addEventListener("click", (event) => {
+  if (!event.target.closest('.paper-custom-multiselect')) {
+    document.querySelectorAll('.paper-multiselect-dropdown').forEach(d => {
+      d.hidden = true;
+    });
   }
 });
 
