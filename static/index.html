@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Exam Bank</title>
-    <link rel="stylesheet" href="/static/styles.css?v=16" />
+    <link rel="stylesheet" href="/static/styles.css?v=20" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Skip to content</a>
@@ -35,6 +35,30 @@
               <svg viewBox="0 0 24 24"><path d="M4 7c0 1.7 3.6 3 8 3s8-1.3 8-3-3.6-3-8-3-8 1.3-8 3Zm0 0v5c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5" /></svg>
             </span>
             <span data-i18n="nav_questions">Questions</span>
+          </button>
+          <button class="nav-item" type="button" data-view="mistakes">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 3 19h18L12 3Zm0 5v5m0 3h.01" /></svg>
+            </span>
+            <span data-i18n="nav_mistakes">Mistakes</span>
+          </button>
+          <button class="nav-item" type="button" data-view="generated">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3v18m-9-9h18M5 5l14 14M19 5 5 19" /></svg>
+            </span>
+            <span data-i18n="nav_generated">Generated</span>
+          </button>
+          <button class="nav-item" type="button" data-view="paperBuilder">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16M8 3v4m5-4v4m5-4v4M8 10v4m5-4v4m5-4v4M8 17v4m5-4v4m5-4v4" /></svg>
+            </span>
+            <span data-i18n="nav_builder">Builder</span>
+          </button>
+          <button class="nav-item" type="button" data-view="paperArchive">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" /></svg>
+            </span>
+            <span data-i18n="nav_archive">Archive</span>
           </button>
           <button class="nav-item" type="button" data-view="types">
             <span class="nav-icon" aria-hidden="true">
@@ -241,9 +265,120 @@
             <div class="type-list" id="typeList"></div>
           </section>
         </section>
+
+        <section class="view" id="mistakesView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="mistakes_panel_title"></h2>
+                <p id="mistakeTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshMistakesBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="stats-grid mistake-summary-grid">
+              <div class="stat-card"><span data-i18n="mistake_stat_total"></span><strong id="mistakeStatTotal">0</strong></div>
+              <div class="stat-card"><span data-i18n="mistake_stat_categories"></span><strong id="mistakeStatCategories">0</strong></div>
+              <div class="stat-card"><span data-i18n="mistake_stat_types"></span><strong id="mistakeStatTypes">0</strong></div>
+              <div class="stat-card"><span data-i18n="mistake_stat_generated"></span><strong id="mistakeStatGenerated">0</strong></div>
+            </div>
+
+            <div class="mistake-controls">
+              <label><span data-i18n="search_label"></span><input id="mistakeSearchInput" type="search" autocomplete="off" data-i18n-placeholder="mistake_search_placeholder" /></label>
+              <label><span data-i18n="category_filter_label"></span><select id="mistakeCategoryFilter"></select></label>
+              <label><span data-i18n="type_filter_label"></span><select id="mistakeTypeFilter"></select></label>
+              <label><span data-i18n="generate_count_label"></span><input id="generateCountInput" type="number" min="1" max="20" value="5" /></label>
+              <button class="primary" type="button" id="generateMistakesBtn" data-i18n="generate_mistakes_button"></button>
+            </div>
+
+            <div class="empty" id="mistakeEmptyState"></div>
+            <div class="db-question-list" id="mistakeList"></div>
+            <section class="mistake-generated-section" id="mistakeGeneratedSection" hidden>
+              <div class="archive-head"><h2 data-i18n="mistake_generated_title"></h2><span id="mistakeGeneratedTotal">0</span></div>
+              <div class="empty archive-empty" id="mistakeGeneratedEmptyState"></div>
+              <div class="db-question-list" id="mistakeGeneratedList"></div>
+            </section>
+          </section>
+        </section>
+
+        <section class="view" id="generatedView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="generated_panel_title"></h2>
+                <p id="generatedTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshGeneratedPapersBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="generated-save-bar" hidden>
+              <label><span data-i18n="generated_paper_title"></span><input id="generatedPaperTitleInput" type="text" data-i18n-placeholder="generated_paper_title_placeholder" /></label>
+              <button class="primary" type="button" id="saveGeneratedPaperBtn" data-i18n="save_generated_paper"></button>
+            </div>
+
+            <div class="empty" id="generatedEmptyState"></div>
+            <div class="db-question-list" id="generatedList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="paperBuilderView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2>生成试卷</h2>
+                <p id="builderTotal"></p>
+              </div>
+              <div class="toolbar-actions">
+                <button class="secondary" type="button" id="clearPaperBuilderBtn">清空当前组卷</button>
+                <button class="primary" type="button" id="exportPaperPdfBtn">打印预览</button>
+              </div>
+            </div>
+
+            <div class="paper-builder-layout">
+              <aside class="paper-builder-controls">
+                <section class="paper-builder-mode">
+                  <h3>按题型生成试卷</h3>
+                  <button class="primary" type="button" id="generatePaperQuestionsBtn">生成新题并组卷</button>
+                </section>
+                <section class="paper-builder-mode">
+                  <h3>一键生成完整试卷</h3>
+                  <label class="paper-full-grade"><span data-i18n="grade_filter_label"></span><select id="fullPaperGradeSelect"><option value="1" data-i18n="grade_1"></option><option value="2" data-i18n="grade_2"></option><option value="3" data-i18n="grade_3"></option></select></label>
+                  <button class="secondary" type="button" id="generateFullPaperBtn">一键生成完整试卷</button>
+                </section>
+                <div class="paper-builder-groups" id="paperBuilderGroups"></div>
+              </aside>
+
+              <div class="paper-preview-panel">
+                <div class="browser-toolbar compact-toolbar">
+                  <div><h2>试卷预览</h2><p id="paperPreviewTotal"></p></div>
+                </div>
+                <div class="empty" id="builderEmptyState"></div>
+                <article class="paper-sheet" id="paperSheet" hidden>
+                  <header class="paper-sheet-head"><h2>错题巩固练习</h2><div class="paper-sheet-meta"><span>姓名：____________</span><span>日期：____________</span><span>得分：____________</span></div></header>
+                  <div id="paperSheetBody"></div>
+                </article>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="paperArchiveView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2>试卷与解析</h2>
+                <p id="generatedPaperTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshGeneratedArchiveBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="empty archive-empty" id="generatedPaperEmptyState"></div>
+            <div class="paper-archive-list" id="generatedPaperList"></div>
+          </section>
+        </section>
       </main>
     </div>
 
-    <script src="/static/app.js?v=16"></script>
+    <script src="/static/app.js?v=22"></script>
   </body>
 </html>

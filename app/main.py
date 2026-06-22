@@ -1,16 +1,20 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal, ROUND_HALF_UP
+import json
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db, init_db
-from app.models import Paper, Question, QuestionType
+from app.generation import generate_similar_questions
+from app.models import GeneratedPaper, Paper, Question, QuestionType
 from app.question_service import save_extracted_questions
 from app.vision import extract_questions_from_image, normalize_uploaded_image
 
@@ -23,6 +27,19 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Exam Bank API", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+class GenerateSimilarRequest(BaseModel):
+    question_ids: list[int] = Field(default_factory=list)
+    category_name: str | None = None
+    question_type: str | None = None
+    count: int = Field(default=5, ge=1, le=20)
+
+
+class SaveGeneratedPaperRequest(BaseModel):
+    title: str = Field(default="Generated practice paper", max_length=255)
+    source_label: str | None = Field(default=None, max_length=500)
+    questions: list[dict[str, Any]] = Field(default_factory=list)
 
 
 @app.middleware("http")
@@ -56,6 +73,61 @@ def list_questions(db: Session = Depends(get_db)):
         "total": len(questions),
         "questions": [_serialize_question(question) for question in questions],
     }
+
+
+@app.post("/api/generate-similar")
+async def generate_similar(request: GenerateSimilarRequest, db: Session = Depends(get_db)):
+    query = db.query(Question).options(
+        joinedload(Question.category),
+        joinedload(Question.type),
+        joinedload(Question.paper),
+    )
+    if request.question_ids:
+        source_ids = list(dict.fromkeys(question_id for question_id in request.question_ids if question_id > 0))[:50]
+        query = query.filter(Question.id.in_(source_ids))
+    else:
+        if request.category_name:
+            query = query.filter(Question.category.has(name=request.category_name))
+        if request.question_type:
+            query = query.filter(Question.type.has(question_type=request.question_type))
+
+    wrong_questions = [
+        question for question in query.order_by(Question.id.desc()).limit(200).all() if question.is_correct is False
+    ]
+    if not wrong_questions:
+        raise HTTPException(status_code=404, detail="no wrong questions found for generation")
+
+    source_questions = [_serialize_question(question) for question in wrong_questions[:10]]
+    generated_questions = await generate_similar_questions(source_questions, request.count)
+    return {
+        "source_count": len(wrong_questions),
+        "source_questions": source_questions,
+        "questions": generated_questions,
+    }
+
+
+@app.get("/api/generated-papers")
+def list_generated_papers(db: Session = Depends(get_db)):
+    papers = db.query(GeneratedPaper).order_by(GeneratedPaper.id.desc()).all()
+    return {"total": len(papers), "papers": [_serialize_generated_paper(paper) for paper in papers]}
+
+
+@app.post("/api/generated-papers")
+def save_generated_paper(request: SaveGeneratedPaperRequest, db: Session = Depends(get_db)):
+    questions = [question for question in request.questions if isinstance(question, dict)]
+    if not questions:
+        raise HTTPException(status_code=400, detail="generated paper requires at least one question")
+
+    paper = GeneratedPaper(
+        title=request.title.strip()[:255] or "Generated practice paper",
+        source_label=(request.source_label or "").strip()[:500] or None,
+        question_count=len(questions),
+        content_json=json.dumps({"questions": questions}, ensure_ascii=False),
+    )
+    db.add(paper)
+    db.commit()
+    db.refresh(paper)
+    return _serialize_generated_paper(paper)
 
 
 @app.get("/api/papers")
@@ -207,6 +279,7 @@ def _serialize_question(question: Question):
         "answer": question.answer,
         "student_answer": question.student_answer or "",
         "is_correct": question.is_correct,
+        "is_wrong": question.is_correct is False,
         "A": question.A or "",
         "B": question.B or "",
         "C": question.C or "",
@@ -220,6 +293,24 @@ def _serialize_question(question: Question):
         "paper_group_name": question.paper.group_name if question.paper else "",
         "has_image": has_image,
         "image_url": f"/api/questions/{question.id}/image" if has_image else "",
+    }
+
+
+def _serialize_generated_paper(paper: GeneratedPaper):
+    try:
+        content = json.loads(paper.content_json or "{}")
+    except json.JSONDecodeError:
+        content = {}
+    questions = content.get("questions")
+    if not isinstance(questions, list):
+        questions = []
+    return {
+        "id": paper.id,
+        "title": paper.title,
+        "source_label": paper.source_label or "",
+        "question_count": paper.question_count,
+        "questions": questions,
+        "created_at": paper.created_at.isoformat(sep=" ", timespec="seconds") if paper.created_at else "",
     }
 
 
