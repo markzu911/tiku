@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Exam Bank</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#mainContent">Skip to content</a>
+    <div class="app-layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">EB</div>
+          <div>
+            <strong data-i18n="brand_title">Exam Bank</strong>
+            <span data-i18n="brand_subtitle">Question system</span>
+          </div>
+        </div>
+        <nav class="nav" aria-label="Primary">
+          <button class="nav-item active" type="button" data-view="upload">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 16V5m0 0 4 4m-4-4-4 4M5 19h14" /></svg>
+            </span>
+            <span data-i18n="nav_upload">Upload</span>
+          </button>
+          <button class="nav-item" type="button" data-view="papers">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H18a2 2 0 0 1 2 2v12.5a1.5 1.5 0 0 1-1.5 1.5h-12A2.5 2.5 0 0 1 4 17.5v-11Zm2.5 13A2.5 2.5 0 0 1 9 17h11M8 8h8M8 12h6" /></svg>
+            </span>
+            <span data-i18n="nav_papers">Papers</span>
+          </button>
+          <button class="nav-item" type="button" data-view="questions">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 7c0 1.7 3.6 3 8 3s8-1.3 8-3-3.6-3-8-3-8 1.3-8 3Zm0 0v5c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5" /></svg>
+            </span>
+            <span data-i18n="nav_questions">Questions</span>
+          </button>
+          <button class="nav-item" type="button" data-view="mistakes">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 4.5 2.7 17.8A2 2 0 0 0 4.4 21h15.2a2 2 0 0 0 1.7-3.2L13.7 4.5a2 2 0 0 0-3.4 0Z" /></svg>
+            </span>
+            <span data-i18n="nav_mistakes">Mistakes</span>
+          </button>
+          <button class="nav-item" type="button" data-view="generated">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3v4m0 10v4M5.6 5.6l2.8 2.8m7.2 7.2 2.8 2.8M3 12h4m10 0h4M5.6 18.4l2.8-2.8m7.2-7.2 2.8-2.8" /></svg>
+            </span>
+            <span data-i18n="nav_generated">Generated</span>
+          </button>
+          <button class="nav-item" type="button" data-view="paperBuilder">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2-3-2V6a2 2 0 0 1 2-2Zm3 5h6M10 13h6M10 17h4" /></svg>
+            </span>
+            <span data-i18n="nav_paper_builder">Paper</span>
+          </button>
+          <button class="nav-item" type="button" data-view="paperArchive">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H18a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V5.5Zm4 3.5h8M8 13h8M8 17h5" /></svg>
+            </span>
+            <span data-i18n="nav_paper_archive">Papers & Answers</span>
+          </button>
+          <button class="nav-item" type="button" data-view="types">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 19V5m5 14V9m5 10V7m5 12v-5M3 19h18" /></svg>
+            </span>
+            <span data-i18n="nav_types">Types</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="app-shell" id="mainContent">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle"></h1>
+            <p id="pageSubtitle"></p>
+          </div>
+          <div class="status" id="status" aria-live="polite"></div>
+        </header>
+
+        <section class="view active" id="uploadView">
+          <section class="upload-grid">
+            <form class="upload-panel" id="uploadForm">
+              <div class="panel-title">
+                <h2 data-i18n="upload_panel_title"></h2>
+                <p data-i18n="upload_panel_subtitle"></p>
+              </div>
+
+              <fieldset class="grade-field">
+                <legend data-i18n="grade_label"></legend>
+                <label><input type="radio" name="grade_level" value="1" checked /> <span data-i18n="grade_1"></span></label>
+                <label><input type="radio" name="grade_level" value="2" /> <span data-i18n="grade_2"></span></label>
+                <label><input type="radio" name="grade_level" value="3" /> <span data-i18n="grade_3"></span></label>
+              </fieldset>
+
+              <label class="paper-name-field">
+                <span data-i18n="paper_name_label"></span>
+                <input id="paperNameInput" name="paper_name" type="text" autocomplete="off" data-i18n-placeholder="paper_name_placeholder" />
+              </label>
+
+              <label class="dropzone" for="paperFile" id="dropzone">
+                <input id="paperFile" name="file" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+                <span class="drop-icon">+</span>
+                <strong data-i18n="choose_file"></strong>
+                <small data-i18n="file_hint"></small>
+              </label>
+
+              <div class="actions">
+                <button class="primary" type="submit" id="submitBtn" data-i18n="extract_button"></button>
+                <button class="secondary" type="button" id="clearBtn" data-i18n="clear_button"></button>
+              </div>
+
+              <figure class="preview" id="previewWrap" hidden>
+                <img id="previewImage" alt="Preview" />
+                <figcaption id="previewCaption"></figcaption>
+              </figure>
+            </form>
+
+            <section class="result-panel">
+              <div class="result-head">
+                <div>
+                  <h2 data-i18n="current_result"></h2>
+                  <p data-i18n="current_result_hint"></p>
+                </div>
+                <span id="countBadge">0</span>
+              </div>
+              <div class="empty" id="emptyState"></div>
+              <div class="question-list" id="questionList"></div>
+            </section>
+          </section>
+        </section>
+
+        <section class="view" id="papersView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="papers_panel_title"></h2>
+                <p id="paperTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshPapersBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="empty" id="paperEmptyState"></div>
+            <div class="paper-list" id="paperList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="questionsView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="db_title"></h2>
+                <p id="questionTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshQuestionsBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span data-i18n="stat_total"></span>
+                <strong id="statTotal">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="stat_grades"></span>
+                <strong id="statGrades">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="stat_types"></span>
+                <strong id="statTypes">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="stat_images"></span>
+                <strong id="statImages">0</strong>
+              </div>
+            </div>
+
+            <div class="filters">
+              <label>
+                <span data-i18n="search_label"></span>
+                <input id="searchInput" type="search" autocomplete="off" />
+              </label>
+              <label>
+                <span data-i18n="grade_filter_label"></span>
+                <select id="gradeFilter"></select>
+              </label>
+              <label>
+                <span data-i18n="category_filter_label"></span>
+                <select id="categoryFilter"></select>
+              </label>
+              <label>
+                <span data-i18n="type_filter_label"></span>
+                <select id="typeFilter"></select>
+              </label>
+              <button class="secondary filter-clear" type="button" id="clearFiltersBtn" data-i18n="clear_filters"></button>
+            </div>
+
+            <div class="empty" id="dbEmptyState"></div>
+            <div class="db-question-list" id="dbQuestionList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="mistakesView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="mistakes_panel_title"></h2>
+                <p id="mistakeTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshMistakesBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span data-i18n="mistake_stat_total"></span>
+                <strong id="mistakeStatTotal">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="mistake_stat_categories"></span>
+                <strong id="mistakeStatCategories">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="mistake_stat_types"></span>
+                <strong id="mistakeStatTypes">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="mistake_stat_filtered"></span>
+                <strong id="mistakeStatFiltered">0</strong>
+              </div>
+            </div>
+
+            <div class="filters mistake-filters">
+              <label>
+                <span data-i18n="category_filter_label"></span>
+                <select id="mistakeCategoryFilter"></select>
+              </label>
+              <label>
+                <span data-i18n="type_filter_label"></span>
+                <select id="mistakeTypeFilter"></select>
+              </label>
+              <label>
+                <span data-i18n="generate_count_label"></span>
+                <input id="generateCountInput" type="number" min="1" max="20" value="5" />
+              </label>
+              <button class="primary" type="button" id="generateFilteredBtn" data-i18n="generate_filtered_button"></button>
+              <button class="secondary filter-clear" type="button" id="clearMistakeFiltersBtn" data-i18n="clear_filters"></button>
+            </div>
+
+            <div class="empty" id="mistakeEmptyState"></div>
+            <div class="db-question-list" id="mistakeList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="generatedView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="generated_panel_title"></h2>
+                <p id="generatedTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="clearGeneratedBtn" data-i18n="clear_generated_button"></button>
+            </div>
+
+            <div class="filters generated-filters">
+              <label>
+                <span data-i18n="category_filter_label"></span>
+                <select id="generatedCategoryFilter"></select>
+              </label>
+              <label>
+                <span data-i18n="type_filter_label"></span>
+                <select id="generatedTypeFilter"></select>
+              </label>
+              <button class="secondary filter-clear" type="button" id="clearGeneratedFiltersBtn" data-i18n="clear_filters"></button>
+            </div>
+
+            <div class="empty" id="generatedEmptyState"></div>
+            <div class="db-question-list" id="generatedList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="paperBuilderView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="paper_builder_panel_title"></h2>
+                <p id="paperBuilderTotal"></p>
+              </div>
+              <div class="toolbar-actions">
+                <button class="secondary" type="button" id="clearPaperBuilderBtn" data-i18n="clear_filters"></button>
+                <button class="primary" type="button" id="exportPaperPdfBtn" data-i18n="export_pdf_button"></button>
+              </div>
+            </div>
+
+            <div class="paper-builder-layout">
+              <aside class="paper-builder-controls">
+                <section class="paper-builder-mode">
+                  <h3 data-i18n="paper_mode_title"></h3>
+                  <p data-i18n="paper_mode_generate"></p>
+                  <button class="primary" type="button" id="generatePaperQuestionsBtn" data-i18n="generate_paper_questions_button"></button>
+                </section>
+                <section class="paper-builder-mode">
+                  <h3 data-i18n="paper_full_mode_title"></h3>
+                  <p data-i18n="paper_full_mode_generate"></p>
+                  <label class="paper-full-grade">
+                    <span data-i18n="paper_full_grade_label"></span>
+                    <select id="fullPaperGradeSelect">
+                      <option value="1" data-i18n="grade_1"></option>
+                      <option value="2" data-i18n="grade_2"></option>
+                      <option value="3" data-i18n="grade_3"></option>
+                    </select>
+                  </label>
+                  <button class="primary" type="button" id="generateFullPaperBtn" data-i18n="generate_full_paper_button"></button>
+                </section>
+                <div class="paper-builder-grid" id="paperBuilderGroups"></div>
+              </aside>
+
+              <div class="paper-preview-panel">
+                <div class="browser-toolbar compact-toolbar">
+                  <div>
+                    <h2 data-i18n="paper_preview_title"></h2>
+                    <p id="paperPreviewTotal"></p>
+                  </div>
+                </div>
+                <div class="empty" id="paperBuilderEmptyState"></div>
+                <article class="paper-sheet" id="paperSheet" hidden>
+                  <header class="paper-sheet-head">
+                    <h2 data-i18n="paper_sheet_title"></h2>
+                    <div class="paper-sheet-meta">
+                      <span data-i18n="paper_sheet_name"></span>
+                      <span data-i18n="paper_sheet_date"></span>
+                      <span data-i18n="paper_sheet_score"></span>
+                    </div>
+                  </header>
+                  <div id="paperSheetBody"></div>
+                </article>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="paperArchiveView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="paper_archive_panel_title"></h2>
+                <p id="paperArchiveTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshPaperArchiveBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="empty" id="paperArchiveEmptyState"></div>
+            <div class="paper-archive-list" id="paperArchiveList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="typesView">
+          <section class="question-browser">
+            <div class="browser-toolbar">
+              <div>
+                <h2 data-i18n="types_panel_title"></h2>
+                <p id="typeTotal"></p>
+              </div>
+              <button class="secondary" type="button" id="refreshTypesBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="stats-grid type-summary-grid">
+              <div class="stat-card">
+                <span data-i18n="type_stat_total"></span>
+                <strong id="typeStatTotal">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="type_stat_attempts"></span>
+                <strong id="typeStatAttempts">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="type_stat_correct"></span>
+                <strong id="typeStatCorrect">0</strong>
+              </div>
+              <div class="stat-card">
+                <span data-i18n="type_stat_errors"></span>
+                <strong id="typeStatErrors">0</strong>
+              </div>
+            </div>
+
+            <div class="empty" id="typeEmptyState"></div>
+            <div class="type-list" id="typeList"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
