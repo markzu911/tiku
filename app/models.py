@@ -1,4 +1,7 @@
-from sqlalchemy import DECIMAL, ForeignKey, Integer, LargeBinary, String
+from datetime import datetime
+
+from sqlalchemy import BOOLEAN, DECIMAL, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -41,6 +44,17 @@ class Paper(Base):
     questions: Mapped[list["Question"]] = relationship(back_populates="paper")
 
 
+class GeneratedPaper(Base):
+    __tablename__ = "generated_paper"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    source_label: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    question_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_json: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+
 class Question(Base):
     __tablename__ = "question"
 
@@ -48,6 +62,7 @@ class Question(Base):
     question_text: Mapped[str] = mapped_column(String(2000), nullable=False)
     answer: Mapped[str] = mapped_column(String(500), nullable=False)
     student_answer: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_correct: Mapped[bool | None] = mapped_column(BOOLEAN, nullable=True)
     A: Mapped[str | None] = mapped_column(String(500), nullable=True)
     B: Mapped[str | None] = mapped_column(String(500), nullable=True)
     C: Mapped[str | None] = mapped_column(String(500), nullable=True)

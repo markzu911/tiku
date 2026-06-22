@@ -44,15 +44,27 @@ def save_extracted_questions(
         if not question_text:
             continue
 
+        student_answer = _clean(item.get("student_answer"))
+        is_correct = _as_bool(item.get("is_correct"))
+        if not student_answer:
+            student_answer = "未作答"
+            is_correct = False
+
         category = _get_or_create_category(db, _clean(item.get("category_name")))
         question_type = _get_or_create_question_type(db, _clean(item.get("question_type")))
-        _update_question_type_stats(question_type, item.get("is_correct"))
-        question_image, question_image_mime_type = crop_cache.crop(item.get("question_image_bbox"))
+        _update_question_type_stats(question_type, is_correct)
+        visual_bboxes = _normalize_visual_bboxes(item.get("question_visuals"))
+
+        question_image, question_image_mime_type = crop_cache.crop(
+            None,
+            visual_bboxes,
+        )
 
         question = Question(
             question_text=question_text,
             answer=_clean(item.get("answer")),
-            student_answer=_clean(item.get("student_answer")),
+            student_answer=student_answer,
+            is_correct=is_correct,
             A=_clean(item.get("A")) or None,
             B=_clean(item.get("B")) or None,
             C=_clean(item.get("C")) or None,
@@ -77,7 +89,7 @@ def save_extracted_questions(
         saved_item["paper_name"] = paper.name if paper else ""
         saved_item["paper_group_id"] = paper.group_id if paper else ""
         saved_item["paper_group_name"] = paper.group_name if paper else ""
-        saved_item["has_image"] = item.get("has_image") is True
+        saved_item["has_image"] = question.question_image is not None
         saved_item["question_image_saved"] = question.question_image is not None
         saved_questions.append(saved_item)
 
@@ -89,6 +101,20 @@ def _clean(value: Any) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _as_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1"}:
+            return True
+        if normalized in {"false", "0"}:
+            return False
+    return None
 
 
 def _create_paper(
@@ -122,31 +148,57 @@ class _ImageCropCache:
         self.mime_type = mime_type or "image/png"
         self._image: Image.Image | None = None
 
-    def crop(self, bbox: Any) -> tuple[bytes | None, str | None]:
+    def crop(self, bbox: Any, visual_bboxes: Any = None) -> tuple[bytes | None, str | None]:
         box = _normalize_bbox(bbox)
-        if self.image_bytes is None or box is None:
+        boxes = _normalize_bboxes(visual_bboxes) or ([box] if box else [])
+        if self.image_bytes is None or not boxes:
             return None, None
 
         image = self._get_image()
         if image is None:
             return None, None
 
-        width, height = image.size
-        x1, y1, x2, y2 = box
-        padding_x = 0.015
-        padding_y = 0.015
-        left = max(0, int((x1 - padding_x) * width))
-        top = max(0, int((y1 - padding_y) * height))
-        right = min(width, int((x2 + padding_x) * width))
-        bottom = min(height, int((y2 + padding_y) * height))
-
-        if right <= left or bottom <= top:
+        cropped_regions = self._crop_visual_regions(image, boxes)
+        if not cropped_regions:
             return None, None
 
-        cropped = image.crop((left, top, right, bottom))
+        cropped = self._compose_visual_regions(cropped_regions)
         output = BytesIO()
         cropped.save(output, format="PNG")
         return output.getvalue(), "image/png"
+
+    @staticmethod
+    def _crop_visual_regions(
+        image: Image.Image,
+        boxes: list[tuple[float, float, float, float]],
+    ) -> list[Image.Image]:
+        width, height = image.size
+        regions = []
+        for x1, y1, x2, y2 in boxes:
+            # Model boxes already identify complete visual assets; only retain a slim safety margin.
+            padding = 0.012
+            left = max(0, int((x1 - padding) * width))
+            top = max(0, int((y1 - padding) * height))
+            right = min(width, int((x2 + padding) * width))
+            bottom = min(height, int((y2 + padding) * height))
+            if right > left and bottom > top:
+                regions.append(image.crop((left, top, right, bottom)))
+        return regions
+
+    @staticmethod
+    def _compose_visual_regions(regions: list[Image.Image]) -> Image.Image:
+        if len(regions) == 1:
+            return regions[0]
+
+        gap = 12
+        canvas_width = max(region.width for region in regions)
+        canvas_height = sum(region.height for region in regions) + gap * (len(regions) - 1)
+        canvas = Image.new("RGB", (canvas_width, canvas_height), "white")
+        top = 0
+        for region in regions:
+            canvas.paste(region, ((canvas_width - region.width) // 2, top))
+            top += region.height + gap
+        return canvas
 
     def _get_image(self) -> Image.Image | None:
         if self._image is not None:
@@ -176,6 +228,22 @@ def _normalize_bbox(value: Any) -> tuple[float, float, float, float] | None:
         return None
 
     return x1, y1, x2, y2
+
+
+def _normalize_bboxes(value: Any) -> list[tuple[float, float, float, float]]:
+    if not isinstance(value, list):
+        return []
+    return [box for item in value if (box := _normalize_bbox(item)) is not None]
+
+
+def _normalize_visual_bboxes(value: Any) -> list[tuple[float, float, float, float]]:
+    if not isinstance(value, list):
+        return []
+    return [
+        box
+        for item in value
+        if isinstance(item, dict) and (box := _normalize_bbox(item.get("bbox"))) is not None
+    ]
 
 
 def _get_or_create_category(db: Session, name: str) -> Category | None:

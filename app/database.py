@@ -65,6 +65,8 @@ def _ensure_question_columns():
     with engine.begin() as connection:
         if "student_answer" not in columns:
             connection.execute(text("ALTER TABLE question ADD COLUMN student_answer VARCHAR(500) NULL"))
+        if "is_correct" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN is_correct BOOLEAN NULL"))
         if "question_image" not in columns:
             connection.execute(text("ALTER TABLE question ADD COLUMN question_image LONGBLOB NULL"))
         if "question_image_mime_type" not in columns:

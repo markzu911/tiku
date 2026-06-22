@@ -22,11 +22,14 @@ const text = {
   paper_name_label: "\u81ea\u5b9a\u4e49\u8bd5\u5377\u540d\u79f0",
   paper_name_placeholder: "\u4e0d\u586b\u5219\u4ece\u56fe\u7247\u6807\u9898\u81ea\u52a8\u63d0\u53d6",
   choose_file: "\u9009\u62e9\u6216\u62d6\u5165\u8bd5\u5377\u56fe\u7247",
-  file_hint: "\u652f\u6301\u591a\u9009\uff1aJPG / PNG / WebP",
+  file_hint: "\u652f\u6301\u591a\u9009\uff1aJPG / PNG / WebP / BMP / GIF / TIFF",
   extract_button: "\u63d0\u53d6\u5e76\u5165\u5e93",
   clear_button: "\u6e05\u7a7a",
   current_result: "\u672c\u6b21\u7ed3\u679c",
   current_result_hint: "\u4e0a\u4f20\u5b8c\u6210\u540e\u4f1a\u663e\u793a\u672c\u6b21\u5165\u5e93\u7684\u9898\u76ee",
+  result_filter_all: "\u5168\u90e8",
+  result_filter_incorrect: "\u53ea\u770b\u9519\u9898",
+  result_filter_correct: "\u53ea\u770b\u6b63\u786e\u9898\u76ee",
   db_title: "\u6570\u636e\u5e93\u9898\u76ee",
   papers_panel_title: "\u5df2\u5165\u5e93\u8bd5\u5377",
   refresh_button: "\u5237\u65b0",
@@ -53,6 +56,7 @@ const text = {
   loaded_types: "\u9898\u578b\u7edf\u8ba1\u5df2\u52a0\u8f7d",
   choose_image: "\u8bf7\u9009\u62e9\u56fe\u7247",
   extracting: "\u8bc6\u522b\u5e76\u5165\u5e93\u4e2d",
+  extracting_title: "\u6b63\u5728\u8bc6\u522b\u8bd5\u5377",
   failed_extract: "\u8bc6\u522b\u5931\u8d25",
   failed_load: "\u52a0\u8f7d\u5931\u8d25",
   failed_load_papers: "\u8bd5\u5377\u52a0\u8f7d\u5931\u8d25",
@@ -74,6 +78,8 @@ const text = {
   paper_question_count: "\u9898\u76ee\u6570",
   paper_image_count: "\u56fe\u7247\u6570",
   view_paper_questions: "\u67e5\u770b\u8be5\u8bd5\u5377\u9898\u76ee",
+  delete_paper: "\u5220\u9664\u8bd5\u5377",
+  paper_deleted: "\u8bd5\u5377\u5df2\u5220\u9664",
   view_type_questions: "\u67e5\u770b\u8be5\u9898\u578b\u9898\u76ee",
   correct_rate: "\u6b63\u786e\u7387",
   error_rate: "\u9519\u8bef\u7387",
@@ -91,11 +97,14 @@ const paperNameInput = document.querySelector("#paperNameInput");
 const fileInput = document.querySelector("#paperFile");
 const dropzone = document.querySelector("#dropzone");
 const previewWrap = document.querySelector("#previewWrap");
-const previewImage = document.querySelector("#previewImage");
+const previewImages = document.querySelector("#previewImages");
 const previewCaption = document.querySelector("#previewCaption");
 const questionList = document.querySelector("#questionList");
 const emptyState = document.querySelector("#emptyState");
+const extractionState = document.querySelector("#extractionState");
+const extractionMessage = document.querySelector("#extractionMessage");
 const countBadge = document.querySelector("#countBadge");
+const uploadResultFilters = document.querySelector("#uploadResultFilters");
 const statusNode = document.querySelector("#status");
 const submitBtn = document.querySelector("#submitBtn");
 const clearBtn = document.querySelector("#clearBtn");
@@ -115,18 +124,21 @@ const gradeFilter = document.querySelector("#gradeFilter");
 const categoryFilter = document.querySelector("#categoryFilter");
 const typeFilter = document.querySelector("#typeFilter");
 const clearFiltersBtn = document.querySelector("#clearFiltersBtn");
+const dbResultFilters = document.querySelector("#dbResultFilters");
 const statTotal = document.querySelector("#statTotal");
 const statGrades = document.querySelector("#statGrades");
 const statTypes = document.querySelector("#statTypes");
 const statImages = document.querySelector("#statImages");
 const paperTotal = document.querySelector("#paperTotal");
 const refreshPapersBtn = document.querySelector("#refreshPapersBtn");
+const paperGradeFilter = document.querySelector("#paperGradeFilter");
 const paperEmptyState = document.querySelector("#paperEmptyState");
 const paperList = document.querySelector("#paperList");
 const typeTotal = document.querySelector("#typeTotal");
 const refreshTypesBtn = document.querySelector("#refreshTypesBtn");
 const typeEmptyState = document.querySelector("#typeEmptyState");
 const typeList = document.querySelector("#typeList");
+const typeStatusFilters = document.querySelector("#typeStatusFilters");
 const typeStatTotal = document.querySelector("#typeStatTotal");
 const typeStatAttempts = document.querySelector("#typeStatAttempts");
 const typeStatCorrect = document.querySelector("#typeStatCorrect");
@@ -135,6 +147,12 @@ const typeStatErrors = document.querySelector("#typeStatErrors");
 let databaseQuestions = [];
 let papers = [];
 let questionTypes = [];
+let uploadQuestions = [];
+let uploadResultFilter = "all";
+let databaseResultFilter = "all";
+let typeStatusFilter = "all";
+let previewUrls = [];
+let selectedFiles = [];
 let pendingTypeFilter = "";
 let pendingPaperFilter = null;
 let activePaperFilter = null;
@@ -226,6 +244,13 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
     const paperBadge = question.paper_name
       ? `<span class="badge-paper">${text.paper_badge}\uff1a${escapeHtml(question.paper_name)}</span>`
       : "";
+    const verdict = getQuestionVerdict(question);
+    const verdictBadge =
+      verdict === true
+        ? '<span class="badge-verdict correct">\u6b63\u786e</span>'
+        : verdict === false
+          ? '<span class="badge-verdict incorrect">\u9519\u8bef</span>'
+          : "";
     const imageHtml = question.image_url
       ? `<img class="question-image" src="${escapeHtml(question.image_url)}" alt="question image" loading="lazy" />`
       : "";
@@ -242,6 +267,7 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
         <span>${escapeHtml(question.category_name || "\u672a\u8bc6\u522b\u7c7b\u522b")}</span>
         ${paperBadge}
         ${imageBadge}
+        ${verdictBadge}
       </div>
       <div class="stem">${renderMathText(question.question_stem || "")}</div>
       <div class="question-text">${renderMathText(question.question_text || "")}</div>
@@ -256,9 +282,60 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
   });
 }
 
-function renderUploadQuestions(questions) {
-  countBadge.textContent = `${questions.length} \u9898`;
-  renderQuestionCards(questionList, emptyState, questions);
+function getQuestionVerdict(question) {
+  if (typeof question.is_correct === "boolean") {
+    return question.is_correct;
+  }
+
+  if (question.is_correct === 1 || question.is_correct === "1") {
+    return true;
+  }
+  if (question.is_correct === 0 || question.is_correct === "0") {
+    return false;
+  }
+  if (typeof question.is_correct === "string") {
+    const modelVerdict = question.is_correct.trim().toLowerCase();
+    if (modelVerdict === "true") return true;
+    if (modelVerdict === "false") return false;
+  }
+
+  const normalize = (value) =>
+    String(value || "")
+      .replaceAll("；", ";")
+      .replace(/\s+/g, "")
+      .trim()
+      .toLowerCase();
+  const studentAnswer = normalize(question.student_answer);
+  const answer = normalize(question.answer);
+  if (studentAnswer === "" || answer === "") {
+    return null;
+  }
+  return studentAnswer === answer;
+}
+
+function isCorrectQuestion(question) {
+  return getQuestionVerdict(question) === true;
+}
+
+function renderUploadQuestions(questions = uploadQuestions) {
+  uploadQuestions = questions;
+  extractionState.hidden = true;
+  const filtered = uploadQuestions.filter((question) => {
+    if (uploadResultFilter === "correct") return isCorrectQuestion(question);
+    if (uploadResultFilter === "incorrect") {
+      return Boolean(question.student_answer) && !isCorrectQuestion(question);
+    }
+    return true;
+  });
+  countBadge.textContent = `${filtered.length} / ${uploadQuestions.length} \u9898`;
+  renderQuestionCards(questionList, emptyState, filtered);
+}
+
+function showExtractionState(fileCount) {
+  emptyState.hidden = true;
+  questionList.innerHTML = "";
+  extractionMessage.textContent = `\u6b63\u5728\u5206\u6790 ${fileCount} \u5f20\u8bd5\u5377\u56fe\u7247\uff0c\u8bf7\u7a0d\u5019`;
+  extractionState.hidden = false;
 }
 
 function uniqueValues(items, key) {
@@ -274,14 +351,26 @@ function fillSelect(select, label, values) {
 }
 
 function updateFilters(questions) {
-  fillSelect(gradeFilter, text.all_grades, uniqueValues(questions, "grade_level"));
+  fillGradeSelect(gradeFilter, uniqueValues(questions, "grade_level"));
   fillSelect(categoryFilter, text.all_categories, uniqueValues(questions, "category_name"));
   fillSelect(typeFilter, text.all_types, uniqueValues(questions, "question_type"));
 }
 
+function fillGradeSelect(select, values) {
+  const currentValue = select.value;
+  select.innerHTML = `<option value="">${text.all_grades}</option>${values
+    .map((value) => {
+      const gradeValue = String(value);
+      const gradeLabel = text[`grade_${gradeValue}`] || `${gradeValue}\u5e74\u7ea7`;
+      return `<option value="${escapeHtml(gradeValue)}">${escapeHtml(gradeLabel)}</option>`;
+    })
+    .join("")}`;
+  select.value = values.map(String).includes(currentValue) ? currentValue : "";
+}
+
 function getFilteredQuestions() {
   const keyword = searchInput.value.trim().toLowerCase();
-  return databaseQuestions.filter((question) => {
+  const filtered = databaseQuestions.filter((question) => {
     const matchesKeyword =
       !keyword ||
       [question.question_text, question.question_stem, question.answer, question.student_answer]
@@ -293,7 +382,33 @@ function getFilteredQuestions() {
     const matchesType = !typeFilter.value || question.question_type === typeFilter.value;
     const matchesPaper =
       !activePaperFilter || activePaperFilter.paperIds.includes(Number(question.paper_id));
-    return matchesKeyword && matchesGrade && matchesCategory && matchesType && matchesPaper;
+    const verdict = getQuestionVerdict(question);
+    const matchesResult =
+      databaseResultFilter === "all" ||
+      (databaseResultFilter === "correct" && verdict === true) ||
+      (databaseResultFilter === "incorrect" && verdict === false);
+    return matchesKeyword && matchesGrade && matchesCategory && matchesType && matchesPaper && matchesResult;
+  });
+
+  if (!activePaperFilter) {
+    return filtered;
+  }
+
+  const pageOrder = new Map(
+    activePaperFilter.paperIds.map((paperId, index) => [Number(paperId), index]),
+  );
+  return filtered.sort((left, right) => {
+    const pageDifference =
+      (pageOrder.get(Number(left.paper_id)) ?? Number.MAX_SAFE_INTEGER) -
+      (pageOrder.get(Number(right.paper_id)) ?? Number.MAX_SAFE_INTEGER);
+    if (pageDifference !== 0) return pageDifference;
+    return Number(left.id) - Number(right.id);
+  });
+}
+
+function updateDatabaseResultFilterButtons() {
+  dbResultFilters.querySelectorAll(".result-filter").forEach((button) => {
+    button.classList.toggle("active", button.dataset.dbResultFilter === databaseResultFilter);
   });
 }
 
@@ -305,16 +420,22 @@ function renderDatabaseQuestions() {
 }
 
 function renderPapers() {
+  const selectedGrade = paperGradeFilter.value;
+  const filteredPapers = papers.filter(
+    (paper) =>
+      !selectedGrade || (paper.grade_levels || []).map(String).includes(selectedGrade),
+  );
   paperList.innerHTML = "";
-  paperEmptyState.hidden = papers.length > 0;
-  paperTotal.textContent = `\u5171 ${papers.length} \u5957\u8bd5\u5377`;
+  paperEmptyState.hidden = filteredPapers.length > 0;
+  paperTotal.textContent = `\u5171 ${papers.length} \u5957\u8bd5\u5377\uff0c\u5f53\u524d\u663e\u793a ${filteredPapers.length} \u5957`;
 
-  papers.forEach((paper) => {
+  filteredPapers.forEach((paper) => {
     const card = document.createElement("article");
     card.className = "paper-card";
     card.tabIndex = 0;
     card.setAttribute("role", "button");
     card.dataset.paperIds = (paper.paper_ids || []).join(",");
+    card.dataset.paperGroupId = paper.id || "";
     card.dataset.paperName = paper.name || text.unknown;
     card.setAttribute("aria-label", `${text.view_paper_questions}\uff1a${paper.name || text.unknown}`);
 
@@ -348,11 +469,21 @@ function renderPapers() {
           <span>${text.paper_question_count}\uff1a${escapeHtml(paper.question_count || 0)}</span>
           <span>${text.paper_image_count}\uff1a${escapeHtml(images.length)}</span>
         </div>
-        <div class="paper-action">${text.view_paper_questions}</div>
+        <div class="paper-card-actions">
+          <div class="paper-action">${text.view_paper_questions}</div>
+          <button class="paper-delete" type="button" data-paper-group-id="${escapeHtml(paper.id || "")}" data-paper-name="${escapeHtml(paper.name || text.unknown)}">${text.delete_paper}</button>
+        </div>
       </div>
     `;
     paperList.appendChild(card);
   });
+}
+
+function updatePaperGradeFilter() {
+  const grades = [
+    ...new Set(papers.flatMap((paper) => (paper.grade_levels || []).map(String))),
+  ].sort((left, right) => Number(left) - Number(right));
+  fillGradeSelect(paperGradeFilter, grades);
 }
 
 function rotatePaperSlide(card, direction) {
@@ -368,6 +499,35 @@ function rotatePaperSlide(card, direction) {
   preview.dataset.currentSlide = String(next);
   if (indicator) {
     indicator.textContent = `${next + 1} / ${slides.length}`;
+  }
+}
+
+async function deletePaperGroup(groupId, paperName, paperIds) {
+  if (!groupId) return;
+  const confirmed = window.confirm(`\u786e\u5b9a\u5220\u9664\u8bd5\u5377\u201c${paperName}\u201d\u5417\uff1f\u5173\u8054\u9898\u76ee\u4e5f\u4f1a\u4e00\u5e76\u5220\u9664\uff0c\u65e0\u6cd5\u6062\u590d\u3002`);
+  if (!confirmed) return;
+
+  setStatus("\u6b63\u5728\u5220\u9664\u8bd5\u5377");
+  try {
+    const response = await fetch(`/api/paper-groups/${encodeURIComponent(groupId)}`, { method: "DELETE" });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "\u5220\u9664\u8bd5\u5377\u5931\u8d25");
+    }
+
+    const deletedPaperIds = new Set((paperIds || []).map((id) => Number(id)));
+    databaseQuestions = databaseQuestions.filter(
+      (question) => !deletedPaperIds.has(Number(question.paper_id)),
+    );
+    if (activePaperFilter && activePaperFilter.paperIds.some((id) => deletedPaperIds.has(Number(id)))) {
+      activePaperFilter = null;
+      pendingPaperFilter = null;
+    }
+    renderDatabaseQuestions();
+    await loadPapers();
+    setStatus(`${text.paper_deleted}\uff0c${data.deleted_question_count || 0} \u9898`);
+  } catch (error) {
+    setStatus(error.message);
   }
 }
 
@@ -388,11 +548,15 @@ function getMasteryLabel(accuracy) {
 }
 
 function renderQuestionTypes() {
+  const filteredTypes = questionTypes.filter((item) => {
+    if (typeStatusFilter === "all") return true;
+    return getMasteryLabel(item.accuracy).level === typeStatusFilter;
+  });
   typeList.innerHTML = "";
-  typeEmptyState.hidden = questionTypes.length > 0;
-  typeTotal.textContent = `\u5171 ${questionTypes.length} \u4e2a\u9898\u578b`;
+  typeEmptyState.hidden = filteredTypes.length > 0;
+  typeTotal.textContent = `\u5171 ${questionTypes.length} \u4e2a\u9898\u578b\uff0c\u5f53\u524d\u663e\u793a ${filteredTypes.length} \u4e2a`;
 
-  questionTypes.forEach((item) => {
+  filteredTypes.forEach((item) => {
     const correctRate = Number(item.accuracy || 0);
     const errorRate = Number(item.error_rate || 0);
     const mastery = getMasteryLabel(correctRate);
@@ -436,6 +600,12 @@ function renderQuestionTypes() {
       <div class="type-action">${text.view_type_questions}</div>
     `;
     typeList.appendChild(card);
+  });
+}
+
+function updateTypeStatusFilterButtons() {
+  typeStatusFilters.querySelectorAll(".result-filter").forEach((button) => {
+    button.classList.toggle("active", button.dataset.typeStatusFilter === typeStatusFilter);
   });
 }
 
@@ -535,6 +705,7 @@ async function loadPapers() {
       throw new Error(data.detail || text.failed_load_papers);
     }
     papers = data.papers || [];
+    updatePaperGradeFilter();
     renderPapers();
     setStatus(text.loaded_papers);
   } catch (error) {
@@ -633,6 +804,8 @@ function clearFilters() {
   activePaperFilter = null;
   pendingPaperFilter = null;
   pendingTypeFilter = "";
+  databaseResultFilter = "all";
+  updateDatabaseResultFilterButtons();
   renderDatabaseQuestions();
 }
 
@@ -658,20 +831,50 @@ function switchView(viewName) {
 
 function setPreview(files) {
   const fileList = Array.from(files || []);
+  previewUrls.forEach((url) => URL.revokeObjectURL(url));
+  previewUrls = [];
+  previewImages.innerHTML = "";
+
   if (fileList.length === 0) {
     previewWrap.hidden = true;
-    previewImage.removeAttribute("src");
     previewCaption.textContent = "";
     return;
   }
-  const file = fileList[0];
-  previewImage.src = URL.createObjectURL(file);
+
+  fileList.forEach((file, index) => {
+    const url = URL.createObjectURL(file);
+    previewUrls.push(url);
+    const tile = document.createElement("div");
+    tile.className = "preview-image-tile";
+    tile.title = `\u7b2c ${index + 1} \u5f20\uff1a${file.name}`;
+    const image = document.createElement("img");
+    image.src = url;
+    image.alt = `\u8bd5\u5377\u9884\u89c8 ${index + 1}\uff1a${file.name}`;
+    tile.appendChild(image);
+    previewImages.appendChild(tile);
+  });
+
   previewCaption.textContent =
     fileList.length === 1
-      ? file.name
-      : `\u5df2\u9009\u62e9 ${fileList.length} \u5f20\uff0c\u9884\u89c8\uff1a${file.name}`;
+      ? fileList[0].name
+      : `\u5df2\u9009\u62e9 ${fileList.length} \u5f20\u8bd5\u5377\u56fe\u7247\uff0c\u5168\u90e8\u5df2\u9884\u89c8`;
   previewWrap.hidden = false;
   setStatus(fileList.length === 1 ? file.name : `\u5df2\u9009\u62e9 ${fileList.length} \u5f20\u8bd5\u5377`);
+}
+
+function addSelectedFiles(files) {
+  const existingFiles = new Set(
+    selectedFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`),
+  );
+  Array.from(files || []).forEach((file) => {
+    const key = `${file.name}:${file.size}:${file.lastModified}`;
+    if (!existingFiles.has(key)) {
+      selectedFiles.push(file);
+      existingFiles.add(key);
+    }
+  });
+  fileInput.value = "";
+  setPreview(selectedFiles);
 }
 
 navItems.forEach((item) => {
@@ -692,10 +895,39 @@ navItems.forEach((item) => {
 
 refreshQuestionsBtn.addEventListener("click", loadDatabaseQuestions);
 refreshPapersBtn.addEventListener("click", loadPapers);
+paperGradeFilter.addEventListener("change", renderPapers);
 refreshTypesBtn.addEventListener("click", loadQuestionTypes);
 clearFiltersBtn.addEventListener("click", clearFilters);
 
+typeStatusFilters.addEventListener("click", (event) => {
+  const button = event.target.closest(".result-filter[data-type-status-filter]");
+  if (!button) return;
+  typeStatusFilter = button.dataset.typeStatusFilter;
+  updateTypeStatusFilterButtons();
+  renderQuestionTypes();
+});
+
+dbResultFilters.addEventListener("click", (event) => {
+  const button = event.target.closest(".result-filter[data-db-result-filter]");
+  if (!button) return;
+  databaseResultFilter = button.dataset.dbResultFilter;
+  updateDatabaseResultFilterButtons();
+  renderDatabaseQuestions();
+});
+
 paperList.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest(".paper-delete[data-paper-group-id]");
+  if (deleteButton) {
+    event.stopPropagation();
+    const card = deleteButton.closest(".paper-card[data-paper-ids]");
+    deletePaperGroup(
+      deleteButton.dataset.paperGroupId,
+      deleteButton.dataset.paperName || text.unknown,
+      card?.dataset.paperIds?.split(",").filter(Boolean) || [],
+    );
+    return;
+  }
+
   const carouselButton = event.target.closest(".paper-carousel-button");
   if (carouselButton) {
     event.stopPropagation();
@@ -709,6 +941,7 @@ paperList.addEventListener("click", (event) => {
 });
 
 paperList.addEventListener("keydown", (event) => {
+  if (event.target.closest(".paper-delete")) return;
   const card = event.target.closest(".paper-card[data-paper-ids]");
   if (!card) return;
 
@@ -738,7 +971,7 @@ typeList.addEventListener("keydown", (event) => {
 });
 
 fileInput.addEventListener("change", () => {
-  setPreview(fileInput.files);
+  addSelectedFiles(fileInput.files);
 });
 
 ["dragenter", "dragover"].forEach((eventName) => {
@@ -757,20 +990,34 @@ fileInput.addEventListener("change", () => {
 
 dropzone.addEventListener("drop", (event) => {
   if (event.dataTransfer.files.length === 0) return;
-  fileInput.files = event.dataTransfer.files;
-  setPreview(fileInput.files);
+  addSelectedFiles(event.dataTransfer.files);
 });
 
 clearBtn.addEventListener("click", () => {
   form.reset();
+  selectedFiles = [];
   setPreview(null);
+  uploadResultFilter = "all";
+  uploadResultFilters.querySelectorAll(".result-filter").forEach((button) => {
+    button.classList.toggle("active", button.dataset.resultFilter === uploadResultFilter);
+  });
   renderUploadQuestions([]);
   setStatus(text.waiting);
 });
 
+uploadResultFilters.addEventListener("click", (event) => {
+  const button = event.target.closest(".result-filter[data-result-filter]");
+  if (!button) return;
+  uploadResultFilter = button.dataset.resultFilter;
+  uploadResultFilters.querySelectorAll(".result-filter").forEach((item) => {
+    item.classList.toggle("active", item === button);
+  });
+  renderUploadQuestions();
+});
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const files = Array.from(fileInput.files || []);
+  const files = selectedFiles;
   const gradeLevel = form.querySelector("input[name='grade_level']:checked")?.value;
   const paperName = paperNameInput.value.trim();
 
@@ -786,6 +1033,9 @@ form.addEventListener("submit", async (event) => {
   }
   files.forEach((file) => formData.append("file", file));
   submitBtn.disabled = true;
+  submitBtn.classList.add("is-loading");
+  submitBtn.setAttribute("aria-busy", "true");
+  showExtractionState(files.length);
   setStatus(files.length === 1 ? text.extracting : `\u6b63\u5728\u8bc6\u522b ${files.length} \u5f20\u8bd5\u5377`);
 
   try {
@@ -804,6 +1054,8 @@ form.addEventListener("submit", async (event) => {
     setStatus(error.message);
   } finally {
     submitBtn.disabled = false;
+    submitBtn.classList.remove("is-loading");
+    submitBtn.removeAttribute("aria-busy");
   }
 });
 

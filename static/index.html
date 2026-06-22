@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Exam Bank</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=16" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">Skip to content</a>
@@ -75,7 +75,7 @@
               </label>
 
               <label class="dropzone" for="paperFile" id="dropzone">
-                <input id="paperFile" name="file" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+                <input id="paperFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,.tif,.tiff" multiple />
                 <span class="drop-icon">+</span>
                 <strong data-i18n="choose_file"></strong>
                 <small data-i18n="file_hint"></small>
@@ -87,7 +87,7 @@
               </div>
 
               <figure class="preview" id="previewWrap" hidden>
-                <img id="previewImage" alt="Preview" />
+                <div class="preview-images" id="previewImages"></div>
                 <figcaption id="previewCaption"></figcaption>
               </figure>
             </form>
@@ -98,7 +98,21 @@
                   <h2 data-i18n="current_result"></h2>
                   <p data-i18n="current_result_hint"></p>
                 </div>
-                <span id="countBadge">0</span>
+                <div class="result-actions">
+                  <span id="countBadge">0</span>
+                  <div class="result-filters" id="uploadResultFilters" role="group" aria-label="question result filter">
+                    <button class="result-filter active" type="button" data-result-filter="all" data-i18n="result_filter_all">&#20840;&#37096;</button>
+                    <button class="result-filter" type="button" data-result-filter="incorrect" data-i18n="result_filter_incorrect">&#21482;&#30475;&#38169;&#39064;</button>
+                    <button class="result-filter" type="button" data-result-filter="correct" data-i18n="result_filter_correct">&#21482;&#30475;&#27491;&#30830;&#39064;</button>
+                  </div>
+                </div>
+              </div>
+              <div class="extraction-state" id="extractionState" hidden aria-live="polite">
+                <div class="scan-sheet" aria-hidden="true"><span></span><span></span><span></span></div>
+                <div>
+                  <h3 data-i18n="extracting_title"></h3>
+                  <p id="extractionMessage"></p>
+                </div>
               </div>
               <div class="empty" id="emptyState"></div>
               <div class="question-list" id="questionList"></div>
@@ -114,6 +128,13 @@
                 <p id="paperTotal"></p>
               </div>
               <button class="secondary" type="button" id="refreshPapersBtn" data-i18n="refresh_button"></button>
+            </div>
+
+            <div class="paper-filter-bar">
+              <label>
+                <span data-i18n="grade_filter_label"></span>
+                <select id="paperGradeFilter"></select>
+              </label>
             </div>
 
             <div class="empty" id="paperEmptyState"></div>
@@ -170,6 +191,12 @@
               <button class="secondary filter-clear" type="button" id="clearFiltersBtn" data-i18n="clear_filters"></button>
             </div>
 
+            <div class="result-filters db-result-filters" id="dbResultFilters" role="group" aria-label="question result filter">
+              <button class="result-filter active" type="button" data-db-result-filter="all" data-i18n="result_filter_all">&#20840;&#37096;</button>
+              <button class="result-filter" type="button" data-db-result-filter="incorrect" data-i18n="result_filter_incorrect">&#21482;&#30475;&#38169;&#39064;</button>
+              <button class="result-filter" type="button" data-db-result-filter="correct" data-i18n="result_filter_correct">&#21482;&#30475;&#27491;&#30830;&#39064;</button>
+            </div>
+
             <div class="empty" id="dbEmptyState"></div>
             <div class="db-question-list" id="dbQuestionList"></div>
           </section>
@@ -204,6 +231,12 @@
               </div>
             </div>
 
+            <div class="result-filters type-status-filters" id="typeStatusFilters" role="group" aria-label="type mastery filter">
+              <button class="result-filter active" type="button" data-type-status-filter="all" data-i18n="result_filter_all">&#20840;&#37096;</button>
+              <button class="result-filter" type="button" data-type-status-filter="perfect" data-i18n="mastery_perfect">&#23436;&#20840;&#19981;&#20986;&#38169;</button>
+              <button class="result-filter" type="button" data-type-status-filter="practice" data-i18n="mastery_practice">&#32463;&#24120;&#32451;&#20064;</button>
+            </div>
+
             <div class="empty" id="typeEmptyState"></div>
             <div class="type-list" id="typeList"></div>
           </section>
@@ -211,6 +244,6 @@
       </main>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=16"></script>
   </body>
 </html>

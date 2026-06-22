@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db, init_db
 from app.models import Paper, Question, QuestionType
 from app.question_service import save_extracted_questions
-from app.vision import extract_questions_from_image
+from app.vision import extract_questions_from_image, normalize_uploaded_image
 
 
 @asynccontextmanager
@@ -22,6 +23,14 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Exam Bank API", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.middleware("http")
+async def disable_browser_cache(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 
 @app.get("/")
@@ -73,6 +82,31 @@ def get_paper_image(paper_id: int, db: Session = Depends(get_db)):
     )
 
 
+@app.delete("/api/paper-groups/{group_id}")
+def delete_paper_group(group_id: str, db: Session = Depends(get_db)):
+    papers = db.query(Paper).filter(Paper.group_id == group_id).all()
+    if not papers and group_id.isdigit():
+        papers = db.query(Paper).filter(Paper.id == int(group_id)).all()
+
+    if not papers:
+        raise HTTPException(status_code=404, detail="paper group not found")
+
+    paper_ids = [paper.id for paper in papers]
+    deleted_questions = (
+        db.query(Question)
+        .filter(Question.paper_id.in_(paper_ids))
+        .delete(synchronize_session=False)
+    )
+    deleted_papers = db.query(Paper).filter(Paper.id.in_(paper_ids)).delete(synchronize_session=False)
+    _recalculate_question_type_stats(db)
+    db.commit()
+
+    return {
+        "deleted_paper_count": deleted_papers,
+        "deleted_question_count": deleted_questions,
+    }
+
+
 @app.get("/api/question-types")
 def list_question_types(db: Session = Depends(get_db)):
     question_types = (
@@ -118,6 +152,7 @@ async def extract_questions(
 
     for index, file in enumerate(files, start=1):
         image_bytes = await file.read()
+        image_bytes, image_mime_type = normalize_uploaded_image(image_bytes, file.content_type)
         await file.seek(0)
         result = await extract_questions_from_image(file, grade_level)
 
@@ -141,7 +176,7 @@ async def extract_questions(
             result["questions"],
             grade_level,
             source_image=image_bytes,
-            source_image_mime_type=file.content_type,
+            source_image_mime_type=image_mime_type,
             paper_name=final_paper_name,
             paper_info=paper_info,
             paper_group_id=group_id,
@@ -171,6 +206,7 @@ def _serialize_question(question: Question):
         "question_stem": question.question_stem or "",
         "answer": question.answer,
         "student_answer": question.student_answer or "",
+        "is_correct": question.is_correct,
         "A": question.A or "",
         "B": question.B or "",
         "C": question.C or "",
@@ -198,10 +234,14 @@ def _serialize_paper_groups(papers: list[Paper]):
                 "paper_ids": [],
                 "images": [],
                 "question_count": 0,
+                "grade_levels": [],
             }
 
         groups[key]["paper_ids"].append(paper.id)
         groups[key]["question_count"] += len(paper.questions)
+        groups[key]["grade_levels"].extend(
+            question.grade_level for question in paper.questions if question.grade_level is not None
+        )
         groups[key]["images"].append(
             {
                 "paper_id": paper.id,
@@ -214,6 +254,8 @@ def _serialize_paper_groups(papers: list[Paper]):
     result = list(groups.values())
     for group in result:
         group["images"].sort(key=lambda image: (image["page_index"], image["paper_id"]))
+        group["paper_ids"] = [image["paper_id"] for image in group["images"]]
+        group["grade_levels"] = sorted(set(group["grade_levels"]))
     return result
 
 
@@ -268,3 +310,28 @@ def _serialize_question_type(question_type: QuestionType):
         "error_rate": error_rate,
         "priority": question_type.priority or "",
     }
+
+
+def _recalculate_question_type_stats(db: Session) -> None:
+    for question_type in db.query(QuestionType).all():
+        question_count = db.query(Question).filter(Question.type_id == question_type.id).count()
+        if question_count == 0:
+            db.delete(question_type)
+            continue
+
+        verdicts = (
+            db.query(Question.is_correct)
+            .filter(Question.type_id == question_type.id, Question.is_correct.is_not(None))
+            .all()
+        )
+        total = len(verdicts)
+        correct_count = sum(1 for (is_correct,) in verdicts if is_correct is True)
+        error_count = total - correct_count
+        question_type.total = total
+        question_type.correct_count = correct_count
+        question_type.error_count = error_count
+        question_type.accuracy = (
+            (Decimal(correct_count * 100) / Decimal(total)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if total
+            else Decimal("0.00")
+        )
