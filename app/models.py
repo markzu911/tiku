@@ -59,6 +59,8 @@ class Question(Base):
     __tablename__ = "question"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    question_no: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    question_box: Mapped[str | None] = mapped_column(Text, nullable=True)
     question_text: Mapped[str] = mapped_column(String(2000), nullable=False)
     answer: Mapped[str] = mapped_column(String(500), nullable=False)
     student_answer: Mapped[str | None] = mapped_column(String(500), nullable=True)

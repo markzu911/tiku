@@ -272,8 +272,14 @@ async def extract_questions(
 
 def _serialize_question(question: Question):
     has_image = question.question_image is not None
+    try:
+        question_box = json.loads(question.question_box) if question.question_box else None
+    except json.JSONDecodeError:
+        question_box = None
     return {
         "id": question.id,
+        "question_no": question.question_no or "",
+        "question_box": question_box,
         "question_text": question.question_text,
         "question_stem": question.question_stem or "",
         "answer": question.answer,

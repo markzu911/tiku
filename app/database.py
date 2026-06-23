@@ -71,6 +71,10 @@ def _ensure_question_columns():
             connection.execute(text("ALTER TABLE question ADD COLUMN question_image LONGBLOB NULL"))
         if "question_image_mime_type" not in columns:
             connection.execute(text("ALTER TABLE question ADD COLUMN question_image_mime_type VARCHAR(100) NULL"))
+        if "question_no" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN question_no VARCHAR(50) NULL"))
+        if "question_box" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN question_box TEXT NULL"))
         if "paper_id" not in columns:
             connection.execute(text("ALTER TABLE question ADD COLUMN paper_id INT NULL"))
             connection.execute(text("CREATE INDEX ix_question_paper_id ON question (paper_id)"))

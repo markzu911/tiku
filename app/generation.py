@@ -91,8 +91,8 @@ async def generate_similar_questions(source_questions: list[dict[str, Any]], cou
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
 
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = os.getenv("OPENAI_MODEL", "gpt-5.5")
     safe_count = max(1, min(20, int(count or 1)))
     payload = {
         "model": model,
@@ -103,7 +103,7 @@ async def generate_similar_questions(source_questions: list[dict[str, Any]], cou
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(
-                f"{base_url}/v1/chat/completions",
+                f"{base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
                 json=payload,
             )
