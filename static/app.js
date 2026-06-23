@@ -371,7 +371,7 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
     const item = document.createElement("article");
     item.className = "question-item";
 
-    const orderText = `#${index + 1}`;
+    const orderText = question.question_no || `#${index + 1}`;
     const imageBadge =
       question.question_image_saved || question.has_image
         ? `<span class="badge-accent">${text.image_badge}</span>`
