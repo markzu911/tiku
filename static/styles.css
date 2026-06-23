@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: light;
   font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
   --bg: #f6f8fb;
@@ -1023,6 +1023,48 @@ select:focus-visible,
   accent-color: var(--blue);
 }
 
+.paper-source-mode {
+  gap: 10px;
+}
+
+.paper-source-toggle {
+  background: #f1f5f9;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.paper-source-toggle label {
+  align-items: center;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+.paper-source-toggle label:has(input:checked) {
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+  color: var(--blue-strong);
+}
+
+.paper-source-toggle input {
+  appearance: none;
+  height: 0;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
 .paper-count-field {
   display: grid;
   gap: 6px;
@@ -1145,6 +1187,25 @@ select:focus-visible,
   line-height: 1.35;
 }
 
+.paper-source-badge {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 900;
+  margin-right: 6px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.paper-source-badge.correct {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
 .multi-select-option strong {
   color: var(--muted);
   font-size: 12px;
@@ -1218,6 +1279,10 @@ select:focus-visible,
   padding: 34px 42px;
 }
 
+#printHost {
+  display: none;
+}
+
 .paper-sheet-head {
   border-bottom: 2px solid #111827;
   margin-bottom: 24px;
@@ -1248,7 +1313,6 @@ select:focus-visible,
 }
 
 .paper-section {
-  break-inside: avoid;
   margin-top: 22px;
 }
 
@@ -1721,6 +1785,32 @@ select:focus-visible,
     size: A4;
   }
 
+  body.printing-host {
+    background: #ffffff !important;
+  }
+
+  body.printing-host .app-layout {
+    display: none !important;
+  }
+
+  body.printing-host #printHost {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+  }
+
+  body.printing-host #printHost .paper-sheet {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    max-width: none;
+    min-height: auto;
+    padding: 0;
+    width: 100%;
+  }
+
   body.printing-paper {
     background: #ffffff !important;
   }
@@ -1768,22 +1858,87 @@ select:focus-visible,
 
   body.printing-paper .paper-sheet-head,
   body.printing-archive-paper .paper-sheet-head,
-  body.printing-archive-answer .paper-sheet-head {
+  body.printing-archive-answer .paper-sheet-head,
+  body.printing-host #printHost .paper-sheet-head {
     margin-bottom: 18px;
   }
 
   body.printing-paper .paper-section,
   body.printing-archive-paper .paper-section,
-  body.printing-archive-answer .paper-section {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  body.printing-archive-answer .paper-section,
+  body.printing-host #printHost .paper-section {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  body.printing-paper .paper-question-list,
+  body.printing-archive-paper .paper-question-list,
+  body.printing-archive-answer .paper-question-list,
+  body.printing-host #printHost .paper-question-list {
+    display: block;
+    gap: 10px;
   }
 
   body.printing-paper .paper-question,
   body.printing-archive-paper .paper-question,
-  body.printing-archive-answer .answer-question {
+  body.printing-archive-answer .answer-question,
+  body.printing-host #printHost .paper-question,
+  body.printing-host #printHost .answer-question {
     break-inside: avoid;
+    margin-top: 14px;
     page-break-inside: avoid;
+  }
+
+  body.printing-paper .paper-question:first-child,
+  body.printing-archive-paper .paper-question:first-child,
+  body.printing-archive-answer .answer-question:first-child,
+  body.printing-host #printHost .paper-question:first-child,
+  body.printing-host #printHost .answer-question:first-child {
+    margin-top: 0;
+  }
+
+  body.printing-paper .paper-question:last-child,
+  body.printing-archive-paper .paper-question:last-child,
+  body.printing-archive-answer .answer-question:last-child,
+  body.printing-host #printHost .paper-question:last-child,
+  body.printing-host #printHost .answer-question:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  body.printing-paper .paper-section:last-child,
+  body.printing-archive-paper .paper-section:last-child,
+  body.printing-archive-answer .paper-section:last-child,
+  body.printing-host #printHost .paper-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  body.printing-paper .paper-section:last-child .paper-question:last-child,
+  body.printing-archive-paper .paper-section:last-child .paper-question:last-child,
+  body.printing-archive-answer .paper-section:last-child .answer-question:last-child,
+  body.printing-host #printHost .paper-section:last-child .paper-question:last-child,
+  body.printing-host #printHost .paper-section:last-child .answer-question:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  body.printing-paper .paper-question-image,
+  body.printing-archive-paper .paper-question-image,
+  body.printing-archive-answer .paper-question-image,
+  body.printing-host #printHost .paper-question-image {
+    max-height: 180px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.printing-paper .paper-question-content,
+  body.printing-archive-paper .paper-question-content,
+  body.printing-archive-answer .paper-question-content,
+  body.printing-host #printHost .paper-question-content {
+    orphans: 3;
+    widows: 3;
   }
 }
 

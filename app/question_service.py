@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 from typing import Any
 
-from PIL import Image
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 
 from app.models import Category, Paper, Question, QuestionType
@@ -79,6 +79,7 @@ def save_extracted_questions(
         saved_item["paper_group_name"] = paper.group_name if paper else ""
         saved_item["has_image"] = item.get("has_image") is True
         saved_item["question_image_saved"] = question.question_image is not None
+        saved_item["image_url"] = f"/api/questions/{question.id}/image" if question.question_image is not None else ""
         saved_questions.append(saved_item)
 
     db.commit()
@@ -133,17 +134,17 @@ class _ImageCropCache:
 
         width, height = image.size
         x1, y1, x2, y2 = box
-        padding_x = 0.015
-        padding_y = 0.015
-        left = max(0, int((x1 - padding_x) * width))
-        top = max(0, int((y1 - padding_y) * height))
-        right = min(width, int((x2 + padding_x) * width))
-        bottom = min(height, int((y2 + padding_y) * height))
+        left = max(0, int((x1 - 0.012) * width))
+        top = max(0, int((y1 - 0.004) * height))
+        right = min(width, int((x2 + 0.012) * width))
+        bottom = min(height, int((y2 + 0.04) * height))
 
         if right <= left or bottom <= top:
             return None, None
 
         cropped = image.crop((left, top, right, bottom))
+        cropped = _focus_trailing_content_band(cropped)
+        cropped = _trim_blank_edges(cropped)
         output = BytesIO()
         cropped.save(output, format="PNG")
         return output.getvalue(), "image/png"
@@ -154,7 +155,7 @@ class _ImageCropCache:
 
         try:
             image = Image.open(BytesIO(self.image_bytes))
-            self._image = image.convert("RGB")
+            self._image = ImageOps.exif_transpose(image).convert("RGB")
         except Exception:
             return None
 
@@ -162,6 +163,9 @@ class _ImageCropCache:
 
 
 def _normalize_bbox(value: Any) -> tuple[float, float, float, float] | None:
+    if isinstance(value, dict):
+        value = [value.get("x1"), value.get("y1"), value.get("x2"), value.get("y2")]
+
     if not isinstance(value, (list, tuple)) or len(value) != 4:
         return None
 
@@ -170,12 +174,192 @@ def _normalize_bbox(value: Any) -> tuple[float, float, float, float] | None:
     except (TypeError, ValueError):
         return None
 
+    if max(abs(x1), abs(y1), abs(x2), abs(y2)) > 1:
+        x1, y1, x2, y2 = x1 / 100, y1 / 100, x2 / 100, y2 / 100
+
+    if x1 > x2:
+        x1, x2 = x2, x1
+    if y1 > y2:
+        y1, y2 = y2, y1
+
     x1, y1 = max(0.0, min(1.0, x1)), max(0.0, min(1.0, y1))
     x2, y2 = max(0.0, min(1.0, x2)), max(0.0, min(1.0, y2))
     if x2 - x1 < 0.01 or y2 - y1 < 0.01:
         return None
 
     return x1, y1, x2, y2
+
+
+def _trim_blank_edges(image: Image.Image) -> Image.Image:
+    bounds = _foreground_bounds(image)
+    if bounds is None:
+        return image
+
+    left, top, right, bottom = bounds
+    width, height = image.size
+    pad_x = max(6, int(width * 0.025))
+    pad_top = max(4, int(height * 0.012))
+    pad_bottom = max(8, int(height * 0.035))
+    return image.crop(
+        (
+            max(0, left - pad_x),
+            max(0, top - pad_top),
+            min(width, right + pad_x),
+            min(height, bottom + pad_bottom),
+        )
+    )
+
+
+def _focus_trailing_content_band(image: Image.Image) -> Image.Image:
+    width, height = image.size
+    if width < 80 or height < 80:
+        return image
+
+    row_counts = _foreground_row_counts(image)
+    if not row_counts:
+        return image
+
+    row_threshold = max(3, int(width * 0.01))
+    bands = _merge_row_bands(row_counts, row_threshold, max(6, int(height * 0.035)))
+    if len(bands) < 2:
+        return image
+
+    last_start, last_end, last_pixels = bands[-1]
+    prev_start, prev_end, _prev_pixels = bands[-2]
+    total_pixels = sum(count for count in row_counts if count >= row_threshold)
+    gap = last_start - prev_end
+
+    if (
+        total_pixels > 0
+        and gap >= max(8, int(height * 0.045))
+        and last_start >= int(height * 0.22)
+        and last_pixels >= total_pixels * 0.28
+    ):
+        pad_top = max(6, int(height * 0.025))
+        return image.crop((0, max(0, last_start - pad_top), width, height))
+
+    return image
+
+
+def _foreground_bounds(image: Image.Image) -> tuple[int, int, int, int] | None:
+    rgb = image.convert("RGB")
+    width, height = rgb.size
+    pixels = rgb.load()
+    background = _estimate_background_gray(rgb)
+    row_counts = [0 for _ in range(height)]
+    col_counts = [0 for _ in range(width)]
+
+    for y in range(height):
+        for x in range(width):
+            if _is_foreground_pixel(pixels[x, y], background):
+                row_counts[y] += 1
+                col_counts[x] += 1
+
+    row_threshold = max(3, int(width * 0.006))
+    col_threshold = max(3, int(height * 0.006))
+    top = _first_index_above(row_counts, row_threshold)
+    bottom = _last_index_above(row_counts, row_threshold)
+    left = _first_index_above(col_counts, col_threshold)
+    right = _last_index_above(col_counts, col_threshold)
+    if top is None or bottom is None or left is None or right is None:
+        return None
+
+    if right - left < 3 or bottom - top < 3:
+        return None
+    return left, top, right + 1, bottom + 1
+
+
+def _foreground_row_counts(image: Image.Image) -> list[int]:
+    rgb = image.convert("RGB")
+    width, height = rgb.size
+    pixels = rgb.load()
+    background = _estimate_background_gray(rgb)
+    row_counts = [0 for _ in range(height)]
+
+    for y in range(height):
+        for x in range(width):
+            if _is_foreground_pixel(pixels[x, y], background):
+                row_counts[y] += 1
+
+    return row_counts
+
+
+def _merge_row_bands(row_counts: list[int], threshold: int, max_gap: int) -> list[tuple[int, int, int]]:
+    bands = []
+    current_start = None
+    current_end = None
+    current_pixels = 0
+    gap = 0
+
+    for index, count in enumerate(row_counts):
+        if count >= threshold:
+            if current_start is None:
+                current_start = index
+                current_pixels = 0
+            current_end = index + 1
+            current_pixels += count
+            gap = 0
+            continue
+
+        if current_start is not None:
+            gap += 1
+            if gap > max_gap:
+                bands.append((current_start, current_end or index, current_pixels))
+                current_start = None
+                current_end = None
+                current_pixels = 0
+                gap = 0
+
+    if current_start is not None:
+        bands.append((current_start, current_end or len(row_counts), current_pixels))
+
+    return bands
+
+
+def _estimate_background_gray(image: Image.Image) -> float:
+    width, height = image.size
+    pixels = image.load()
+    samples = []
+    edge = max(2, min(width, height) // 20)
+    for y in range(height):
+        for x in range(width):
+            if x >= edge and x < width - edge and y >= edge and y < height - edge:
+                continue
+            red, green, blue = pixels[x, y]
+            samples.append(_gray(red, green, blue))
+
+    if not samples:
+        return 245.0
+
+    samples.sort()
+    return samples[len(samples) // 2]
+
+
+def _is_foreground_pixel(pixel: tuple[int, int, int], background_gray: float) -> bool:
+    red, green, blue = pixel
+    gray = _gray(red, green, blue)
+    saturation = max(red, green, blue) - min(red, green, blue)
+    if saturation > 45:
+        return False
+    return gray < background_gray - 20
+
+
+def _gray(red: int, green: int, blue: int) -> float:
+    return red * 0.299 + green * 0.587 + blue * 0.114
+
+
+def _first_index_above(values: list[int], threshold: int) -> int | None:
+    for index, value in enumerate(values):
+        if value >= threshold:
+            return index
+    return None
+
+
+def _last_index_above(values: list[int], threshold: int) -> int | None:
+    for index in range(len(values) - 1, -1, -1):
+        if values[index] >= threshold:
+            return index
+    return None
 
 
 def _get_or_create_category(db: Session, name: str) -> Category | None:

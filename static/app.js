@@ -1,4 +1,4 @@
-const text = {
+﻿const text = {
   brand_title: "\u8bd5\u5377\u9898\u5e93",
   brand_subtitle: "\u8bc6\u522b\u3001\u5224\u9898\u3001\u5165\u5e93",
   nav_upload: "\u4e0a\u4f20\u8bd5\u5377",
@@ -20,7 +20,7 @@ const text = {
   generated_title: "\u751f\u6210\u9898\u76ee",
   generated_subtitle: "\u67e5\u770b\u5df2\u751f\u6210\u7684\u7c7b\u4f3c\u9898\uff0c\u4e0d\u5199\u5165\u6570\u636e\u5e93\u3002",
   paper_builder_title: "\u751f\u6210\u8bd5\u5377",
-  paper_builder_subtitle: "\u4ece\u9519\u9898\u6982\u89c8\u7684\u5df2\u6709\u9898\u578b\u4e2d\uff0c\u6309\u9009\u62e9\u9898\u3001\u586b\u7a7a\u9898\u3001\u5e94\u7528\u9898\u5206\u522b\u9009\u62e9\u9898\u578b\u5e76\u7ec4\u5377\u3002",
+  paper_builder_subtitle: "选择错题或正确题的题型来源，按选择题、填空题、应用题分别设置数量并组卷。",
   paper_archive_title: "\u8bd5\u5377\u548c\u89e3\u6790",
   paper_archive_subtitle: "\u67e5\u770b\u5df2\u751f\u6210\u7684\u7ec3\u4e60\u8bd5\u5377\uff0c\u4ee5\u53ca\u5bf9\u5e94\u7684\u7b54\u6848\u548c\u89e3\u6790\u3002",
   types_title: "\u9898\u578b\u6b63\u9519\u7387",
@@ -78,6 +78,7 @@ const text = {
   loaded_types: "\u9898\u578b\u7edf\u8ba1\u5df2\u52a0\u8f7d",
   loading_mistakes: "\u52a0\u8f7d\u9519\u9898\u4e2d",
   loaded_mistakes: "\u9519\u9898\u5df2\u52a0\u8f7d",
+  loading_paper_builder: "加载组卷题型中",
   loaded_generated: "\u751f\u6210\u9898\u76ee\u5df2\u52a0\u8f7d",
   loaded_paper_builder: "\u751f\u6210\u8bd5\u5377\u5df2\u52a0\u8f7d",
   loading_paper_archive: "\u52a0\u8f7d\u8bd5\u5377\u548c\u89e3\u6790\u4e2d",
@@ -137,11 +138,16 @@ const text = {
   answer_sheet_title: "\u7b54\u6848\u548c\u89e3\u6790",
   practice_paper_label: "\u7ec3\u4e60\u8bd5\u5377",
   answer_paper_label: "\u7b54\u6848\u89e3\u6790",
+  paper_source_title: "出题来源",
+  paper_source_wrong: "错题题型",
+  paper_source_correct: "正确题型",
+  paper_source_wrong_hint: "用于巩固薄弱题型，生成和错题同知识点的新题。",
+  paper_source_correct_hint: "用于拓展已掌握题型，生成和正确题同知识点的新题。",
   paper_mode_title: "\u6309\u9898\u578b\u751f\u6210\u8bd5\u5377",
-  paper_mode_generate: "\u52fe\u9009\u9519\u9898\u9898\u578b\uff0c\u5e76\u8bbe\u7f6e\u6bcf\u4e2a\u9898\u578b\u8981\u751f\u6210\u7684\u9898\u76ee\u6570\u91cf\u3002",
+  paper_mode_generate: "勾选当前来源中的题型，并设置每个题型要生成的题目数量。",
   generate_paper_questions_button: "\u751f\u6210\u65b0\u9898\u5e76\u7ec4\u5377",
   paper_full_mode_title: "\u4e00\u952e\u751f\u6210\u5b8c\u6574\u8bd5\u5377",
-  paper_full_mode_generate: "\u6309\u5e74\u7ea7\u968f\u673a\u62bd\u53d6\u9519\u9898\u9898\u578b\uff0c\u751f\u6210\u9009\u62e9\u9898 12 \u9898\u3001\u586b\u7a7a\u9898 12 \u9898\u3001\u5e94\u7528\u9898 8 \u9898\u3002",
+  paper_full_mode_generate: "按年级随机抽取当前来源中的题型，生成选择题 12 题、填空题 12 题、应用题 8 题。",
   paper_full_grade_label: "\u5e74\u7ea7",
   generate_full_paper_button: "\u4e00\u952e\u751f\u6210\u5b8c\u6574\u8bd5\u5377",
   paper_count_suffix: "\u9898",
@@ -220,6 +226,8 @@ const generatedCategoryFilter = document.querySelector("#generatedCategoryFilter
 const generatedTypeFilter = document.querySelector("#generatedTypeFilter");
 const clearGeneratedFiltersBtn = document.querySelector("#clearGeneratedFiltersBtn");
 const paperBuilderTotal = document.querySelector("#paperBuilderTotal");
+const paperSourceHint = document.querySelector("#paperSourceHint");
+const paperSourceModeInputs = document.querySelectorAll("input[name='paper_source_mode']");
 const paperBuilderGroups = document.querySelector("#paperBuilderGroups");
 const clearPaperBuilderBtn = document.querySelector("#clearPaperBuilderBtn");
 const exportPaperPdfBtn = document.querySelector("#exportPaperPdfBtn");
@@ -241,6 +249,7 @@ let questionTypes = [];
 let generatedQuestions = loadGeneratedQuestions();
 let generatedPapers = [];
 let activeGeneratedPaperId = null;
+let paperBuilderSourceModes = ["wrong"];
 let paperBuilderSelections = {};
 let paperBuilderCounts = {};
 let paperBuilderGeneratedQuestions = [];
@@ -339,6 +348,7 @@ function initText() {
   paperArchiveTotal.textContent = "\u5171 0 \u5957\u8bd5\u5377";
   typeTotal.textContent = "\u5171 0 \u4e2a\u9898\u578b";
   countBadge.textContent = "0 \u9898";
+  updatePaperSourceHint();
   setStatus(text.waiting);
   switchHeader("upload");
 }
@@ -455,6 +465,22 @@ function isWrongQuestion(question) {
 
 function getWrongQuestions() {
   return databaseQuestions.filter(isWrongQuestion);
+}
+
+function isCorrectQuestion(question) {
+  if (question && typeof question.is_correct === "boolean") {
+    return question.is_correct === true;
+  }
+  if (question && typeof question.is_wrong === "boolean") {
+    return question.is_wrong === false;
+  }
+  const answer = normalizeAnswer(question?.answer);
+  const studentAnswer = normalizeAnswer(question?.student_answer);
+  return Boolean(answer && studentAnswer && answer === studentAnswer);
+}
+
+function getCorrectQuestions() {
+  return databaseQuestions.filter(isCorrectQuestion);
 }
 
 function loadGeneratedQuestions() {
@@ -1125,23 +1151,111 @@ function renderGeneratedQuestions() {
   });
 }
 
+function getActivePaperBuilderSourceModes() {
+  return paperBuilderSourceModes.length ? paperBuilderSourceModes : ["wrong"];
+}
+
+function getPaperBuilderSourceQuestions(sourceMode = "") {
+  if (sourceMode === "correct") {
+    return getCorrectQuestions();
+  }
+  if (sourceMode === "wrong") {
+    return getWrongQuestions();
+  }
+  return getActivePaperBuilderSourceModes().flatMap((mode) => getPaperBuilderSourceQuestions(mode));
+}
+
+function getPaperBuilderSourceName(sourceMode = "") {
+  if (sourceMode === "correct") return "正确题";
+  if (sourceMode === "wrong") return "错题";
+  const modes = getActivePaperBuilderSourceModes();
+  if (modes.includes("wrong") && modes.includes("correct")) return "错题和正确题";
+  return getPaperBuilderSourceName(modes[0]);
+}
+
+function getPaperBuilderSourceTypeName(sourceMode = "") {
+  if (sourceMode === "correct") return "正确题型";
+  if (sourceMode === "wrong") return "错题题型";
+  const modes = getActivePaperBuilderSourceModes();
+  if (modes.includes("wrong") && modes.includes("correct")) return "错题和正确题型";
+  return getPaperBuilderSourceTypeName(modes[0]);
+}
+
+function updatePaperSourceHint() {
+  if (!paperSourceHint) return;
+  const modes = getActivePaperBuilderSourceModes();
+  if (modes.includes("wrong") && modes.includes("correct")) {
+    paperSourceHint.textContent = "可同时从错题和正确题中选择题型，生成一张混合练习卷。";
+    return;
+  }
+  paperSourceHint.textContent =
+    modes[0] === "correct" ? text.paper_source_correct_hint : text.paper_source_wrong_hint;
+}
+
+function syncPaperBuilderSourceModes() {
+  const nextModes = Array.from(paperSourceModeInputs)
+    .filter((input) => input.checked)
+    .map((input) => input.value)
+    .filter((mode) => mode === "wrong" || mode === "correct");
+
+  if (!nextModes.length) {
+    const fallback = paperSourceModeInputs[0];
+    if (fallback) {
+      fallback.checked = true;
+    }
+    nextModes.push("wrong");
+  }
+
+  const normalized = ["wrong", "correct"].filter((mode) => nextModes.includes(mode));
+  if (normalized.join("|") === paperBuilderSourceModes.join("|")) {
+    updatePaperSourceHint();
+    return;
+  }
+
+  paperBuilderSourceModes = normalized;
+  paperBuilderGeneratedQuestions = [];
+  renderPaperBuilder();
+  setStatus(`已选择${getPaperBuilderSourceTypeName()}来源`);
+}
+
 function getQuestionGradeValue(question) {
   return String(question.grade_level || "");
 }
 
-function getPaperBuilderTypeCounts(categoryName, gradeLevel = "") {
-  const counts = new Map();
-  getWrongQuestions()
-    .filter(
-      (question) =>
-        question.category_name === categoryName &&
-        question.question_type &&
-        (!gradeLevel || getQuestionGradeValue(question) === String(gradeLevel)),
-    )
-    .forEach((question) => {
-      counts.set(question.question_type, (counts.get(question.question_type) || 0) + 1);
-    });
-  return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right, "zh-Hans-CN"));
+function getPaperBuilderSelectionKey(sourceMode, questionType) {
+  return `${sourceMode}||${questionType}`;
+}
+
+function parsePaperBuilderSelectionKey(selectionKey) {
+  const [sourceMode, ...questionTypeParts] = String(selectionKey || "").split("||");
+  return {
+    sourceMode: sourceMode === "correct" ? "correct" : "wrong",
+    questionType: questionTypeParts.join("||"),
+  };
+}
+
+function getPaperBuilderTypeOptions(categoryName, gradeLevel = "") {
+  const options = [];
+  getActivePaperBuilderSourceModes().forEach((sourceMode) => {
+    const counts = new Map();
+    getPaperBuilderSourceQuestions(sourceMode)
+      .filter(
+        (question) =>
+          question.category_name === categoryName &&
+          question.question_type &&
+          (!gradeLevel || getQuestionGradeValue(question) === String(gradeLevel)),
+      )
+      .forEach((question) => {
+        counts.set(question.question_type, (counts.get(question.question_type) || 0) + 1);
+      });
+
+    [...counts.entries()]
+      .sort(([left], [right]) => left.localeCompare(right, "zh-Hans-CN"))
+      .forEach(([questionType, count]) => {
+        options.push({ sourceMode, questionType, count });
+      });
+  });
+  return options;
 }
 
 function shuffleItems(items) {
@@ -1155,17 +1269,24 @@ function shuffleItems(items) {
 
 function prunePaperBuilderSelections() {
   paperBuilderCategories.forEach((categoryName) => {
-    const availableTypes = new Set(getPaperBuilderTypeCounts(categoryName).map(([questionType]) => questionType));
-    paperBuilderSelections[categoryName] = (paperBuilderSelections[categoryName] || []).filter((questionType) =>
-      availableTypes.has(questionType),
+    const availableKeys = new Set(
+      getPaperBuilderTypeOptions(categoryName).map((option) =>
+        getPaperBuilderSelectionKey(option.sourceMode, option.questionType),
+      ),
+    );
+    paperBuilderSelections[categoryName] = (paperBuilderSelections[categoryName] || []).filter((selectionKey) =>
+      availableKeys.has(selectionKey),
     );
   });
 }
 
 function getPaperBuilderPreviewQuestions() {
   return generatedQuestions.filter((question) => {
-    const selectedTypes = paperBuilderSelections[question.category_name] || [];
-    return selectedTypes.includes(question.question_type);
+    const selectedKeys = paperBuilderSelections[question.category_name] || [];
+    return selectedKeys.some((selectionKey) => {
+      const { sourceMode, questionType } = parsePaperBuilderSelectionKey(selectionKey);
+      return sourceMode === question.source_mode && questionType === question.question_type;
+    });
   });
 }
 
@@ -1188,28 +1309,34 @@ function getPaperBuilderSections() {
   return buildQuestionSections(paperBuilderGeneratedQuestions);
 }
 
-function getPaperBuilderKey(categoryName, questionType) {
-  return `${categoryName}||${questionType}`;
+function getPaperBuilderKey(categoryName, sourceMode, questionType) {
+  return `${categoryName}||${sourceMode}||${questionType}`;
 }
 
-function getPaperBuilderCount(categoryName, questionType) {
-  const value = Math.trunc(Number(paperBuilderCounts[getPaperBuilderKey(categoryName, questionType)] || 5));
+function getPaperBuilderCount(categoryName, sourceMode, questionType) {
+  const value = Math.trunc(Number(paperBuilderCounts[getPaperBuilderKey(categoryName, sourceMode, questionType)] || 5));
   const safeValue = Math.min(20, Math.max(1, Number.isFinite(value) ? value : 5));
   return safeValue;
 }
 
 function getSelectedPaperBuilderPairs() {
   return paperBuilderCategories.flatMap((categoryName) =>
-    (paperBuilderSelections[categoryName] || []).map((questionType) => ({
-      categoryName,
-      questionType,
-      count: getPaperBuilderCount(categoryName, questionType),
-    })),
+    (paperBuilderSelections[categoryName] || [])
+      .map((selectionKey) => {
+        const { sourceMode, questionType } = parsePaperBuilderSelectionKey(selectionKey);
+        return {
+          categoryName,
+          sourceMode,
+          questionType,
+          count: getPaperBuilderCount(categoryName, sourceMode, questionType),
+        };
+      })
+      .filter((pair) => pair.questionType),
   );
 }
 
-function getWrongQuestionsForPaperType(categoryName, questionType, gradeLevel = "") {
-  return getWrongQuestions().filter(
+function getPaperBuilderSourceQuestionsForType(categoryName, sourceMode, questionType, gradeLevel = "") {
+  return getPaperBuilderSourceQuestions(sourceMode).filter(
     (question) =>
       question.category_name === categoryName &&
       question.question_type === questionType &&
@@ -1220,7 +1347,7 @@ function getWrongQuestionsForPaperType(categoryName, questionType, gradeLevel = 
 function updatePaperBuilderActionState() {
   generatePaperQuestionsBtn.disabled = getSelectedPaperBuilderPairs().length === 0;
   if (generateFullPaperBtn) {
-    generateFullPaperBtn.disabled = getWrongQuestions().length === 0;
+    generateFullPaperBtn.disabled = getPaperBuilderSourceQuestions().length === 0;
   }
 }
 
@@ -1228,14 +1355,15 @@ function buildFullPaperPairs(gradeLevel) {
   const shortage = [];
   const pairs = paperBuilderCategories.flatMap((categoryName) => {
     const targetCount = fullPaperTargets[categoryName] || 0;
-    const typeCounts = shuffleItems(getPaperBuilderTypeCounts(categoryName, gradeLevel));
-    if (typeCounts.length < targetCount) {
-      shortage.push(`${categoryName}\u9700 ${targetCount} \u79cd\uff0c\u5f53\u524d ${typeCounts.length} \u79cd`);
+    const typeOptions = shuffleItems(getPaperBuilderTypeOptions(categoryName, gradeLevel));
+    if (typeOptions.length < targetCount) {
+      shortage.push(`${categoryName}\u9700 ${targetCount} \u79cd\uff0c\u5f53\u524d${getPaperBuilderSourceTypeName()} ${typeOptions.length} \u79cd`);
       return [];
     }
-    return typeCounts.slice(0, targetCount).map(([questionType]) => ({
+    return typeOptions.slice(0, targetCount).map((option) => ({
       categoryName,
-      questionType,
+      sourceMode: option.sourceMode,
+      questionType: option.questionType,
       count: 1,
       gradeLevel,
     }));
@@ -1246,7 +1374,7 @@ function buildFullPaperPairs(gradeLevel) {
 
 async function generatePaperFromPairs(selectedPairs, options = {}) {
   if (!selectedPairs.length) {
-    setStatus(options.emptyMessage || "\u8bf7\u5148\u9009\u62e9\u8981\u751f\u6210\u7684\u9519\u9898\u9898\u578b");
+    setStatus(options.emptyMessage || `\u8bf7\u5148\u9009\u62e9\u8981\u751f\u6210\u7684${getPaperBuilderSourceTypeName()}`);
     return;
   }
 
@@ -1254,6 +1382,9 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
   if (generateFullPaperBtn) {
     generateFullPaperBtn.disabled = true;
   }
+  paperSourceModeInputs.forEach((input) => {
+    input.disabled = true;
+  });
   exportPaperPdfBtn.disabled = true;
   paperBuilderGeneratedQuestions = [];
   renderPaperBuilderPreview();
@@ -1262,7 +1393,12 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
   try {
     const generatedItems = [];
     for (const pair of selectedPairs) {
-      const sourceQuestions = getWrongQuestionsForPaperType(pair.categoryName, pair.questionType, pair.gradeLevel);
+      const sourceQuestions = getPaperBuilderSourceQuestionsForType(
+        pair.categoryName,
+        pair.sourceMode,
+        pair.questionType,
+        pair.gradeLevel,
+      );
       if (!sourceQuestions.length) {
         continue;
       }
@@ -1273,6 +1409,7 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
         body: JSON.stringify({
           question_ids: sourceQuestions.map((question) => question.id),
           count: pair.count,
+          source_mode: pair.sourceMode,
         }),
       });
       const data = await response.json();
@@ -1280,7 +1417,7 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
         throw new Error(data.detail || text.failed_generate);
       }
 
-      const sourceLabel = `${pair.categoryName} + ${pair.questionType}`;
+      const sourceLabel = `${getPaperBuilderSourceTypeName(pair.sourceMode)}\uff1a${pair.categoryName} + ${pair.questionType}`;
       const createdAt = new Date().toLocaleString();
       (data.questions || []).forEach((question, index) => {
         generatedItems.push({
@@ -1290,6 +1427,7 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
           category_name: question.category_name || pair.categoryName,
           question_type: question.question_type || pair.questionType,
           source_label: sourceLabel,
+          source_mode: pair.sourceMode,
           source_count: data.source_count || sourceQuestions.length,
           source_question_ids: sourceQuestions.map((source) => source.id).filter(Boolean),
           generated_at: createdAt,
@@ -1298,7 +1436,7 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
     }
 
     if (!generatedItems.length) {
-      setStatus(options.noResultMessage || "\u672a\u751f\u6210\u65b0\u9898\uff0c\u8bf7\u786e\u8ba4\u6240\u9009\u9898\u578b\u4e2d\u6709\u9519\u9898");
+      setStatus(options.noResultMessage || `\u672a\u751f\u6210\u65b0\u9898\uff0c\u8bf7\u786e\u8ba4\u6240\u9009\u9898\u578b\u4e2d\u6709${getPaperBuilderSourceName()}`);
       return;
     }
 
@@ -1306,7 +1444,10 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
     generatedQuestions = [...generatedItems, ...generatedQuestions];
     saveGeneratedQuestions();
     const sourceLabel =
-      options.sourceLabel || selectedPairs.map((pair) => `${pair.categoryName} + ${pair.questionType}`).join("\uff1b");
+      options.sourceLabel ||
+      `${getPaperBuilderSourceTypeName()}\uff1a${selectedPairs
+        .map((pair) => `${getPaperBuilderSourceTypeName(pair.sourceMode)} ${pair.categoryName} + ${pair.questionType}`)
+        .join("\uff1b")}`;
     const savedPaper = await saveGeneratedPaperArchive(generatedItems, sourceLabel);
     if (savedPaper) {
       generatedPapers = [savedPaper, ...generatedPapers.filter((paper) => paper.id !== savedPaper.id)];
@@ -1317,6 +1458,9 @@ async function generatePaperFromPairs(selectedPairs, options = {}) {
   } catch (error) {
     setStatus(error.message);
   } finally {
+    paperSourceModeInputs.forEach((input) => {
+      input.disabled = false;
+    });
     updatePaperBuilderActionState();
   }
 }
@@ -1330,14 +1474,14 @@ async function generateFullPaperByGrade() {
   const gradeLabel = text[`grade_${gradeLevel}`] || `${gradeLevel}\u5e74\u7ea7`;
   const { pairs, shortage } = buildFullPaperPairs(gradeLevel);
   if (shortage.length) {
-    setStatus(`${gradeLabel}\u9519\u9898\u9898\u578b\u4e0d\u8db3\uff1a${shortage.join("\uff1b")}`);
+    setStatus(`${gradeLabel}${getPaperBuilderSourceTypeName()}\u4e0d\u8db3\uff1a${shortage.join("\uff1b")}`);
     return;
   }
 
   await generatePaperFromPairs(pairs, {
-    sourceLabel: `${gradeLabel}\u4e00\u952e\u5b8c\u6574\u8bd5\u5377`,
-    emptyMessage: `${gradeLabel}\u6682\u65e0\u53ef\u7528\u9519\u9898\u9898\u578b`,
-    noResultMessage: `${gradeLabel}\u672a\u751f\u6210\u65b0\u9898\uff0c\u8bf7\u5148\u8865\u5145\u5bf9\u5e94\u9519\u9898`,
+    sourceLabel: `${gradeLabel}${getPaperBuilderSourceTypeName()}\u4e00\u952e\u5b8c\u6574\u8bd5\u5377`,
+    emptyMessage: `${gradeLabel}\u6682\u65e0\u53ef\u7528${getPaperBuilderSourceTypeName()}`,
+    noResultMessage: `${gradeLabel}\u672a\u751f\u6210\u65b0\u9898\uff0c\u8bf7\u5148\u8865\u5145\u5bf9\u5e94${getPaperBuilderSourceName()}`,
   });
 }
 
@@ -1378,7 +1522,7 @@ async function loadGeneratedPapers() {
 }
 
 async function loadPaperBuilder() {
-  setStatus(text.loading_mistakes);
+  setStatus(text.loading_paper_builder);
   try {
     const response = await fetch("/api/questions");
     const data = await response.json();
@@ -1397,42 +1541,47 @@ async function loadPaperBuilder() {
 
 function renderPaperBuilder() {
   prunePaperBuilderSelections();
-  const wrongQuestions = getWrongQuestions();
-  paperBuilderTotal.textContent = `\u5171 ${wrongQuestions.length} \u9053\u9519\u9898\u53ef\u9009\uff0c\u9009\u9898\u578b\u540e\u751f\u6210\u65b0\u9898\u7ec4\u5377`;
+  updatePaperSourceHint();
+  const sourceQuestions = getPaperBuilderSourceQuestions();
+  paperBuilderTotal.textContent = `\u5171 ${sourceQuestions.length} \u9053${getPaperBuilderSourceName()}\u53ef\u9009\uff0c\u9009\u9898\u578b\u540e\u751f\u6210\u65b0\u9898\u7ec4\u5377`;
   paperBuilderGroups.innerHTML = "";
 
   paperBuilderCategories.forEach((categoryName) => {
     const card = document.createElement("article");
     card.className = "paper-type-group";
-    const typeCounts = getPaperBuilderTypeCounts(categoryName);
-    const selectedTypes = paperBuilderSelections[categoryName] || [];
-    const selectedLabel = `\u5df2\u9009 ${selectedTypes.length} / ${typeCounts.length} \u4e2a\u9898\u578b`;
+    const typeOptions = getPaperBuilderTypeOptions(categoryName);
+    const selectedKeys = paperBuilderSelections[categoryName] || [];
+    const selectedLabel = `\u5df2\u9009 ${selectedKeys.length} / ${typeOptions.length} \u4e2a\u9898\u578b`;
 
-    const optionsHtml = typeCounts.length
-      ? typeCounts
-          .map(([questionType, count]) => {
-            const checked = selectedTypes.includes(questionType) ? " checked" : "";
-            const key = getPaperBuilderKey(categoryName, questionType);
-            const questionCount = getPaperBuilderCount(categoryName, questionType);
+    const optionsHtml = typeOptions.length
+      ? typeOptions
+          .map((option) => {
+            const selectionKey = getPaperBuilderSelectionKey(option.sourceMode, option.questionType);
+            const checked = selectedKeys.includes(selectionKey) ? " checked" : "";
+            const key = getPaperBuilderKey(categoryName, option.sourceMode, option.questionType);
+            const questionCount = getPaperBuilderCount(categoryName, option.sourceMode, option.questionType);
             return `
               <label class="multi-select-option">
-                <input type="checkbox" data-category-name="${escapeHtml(categoryName)}" value="${escapeHtml(questionType)}"${checked} />
-                <span>${escapeHtml(questionType)}</span>
+                <input type="checkbox" data-category-name="${escapeHtml(categoryName)}" data-source-mode="${escapeHtml(option.sourceMode)}" value="${escapeHtml(option.questionType)}"${checked} />
+                <span>
+                  <b class="paper-source-badge ${escapeHtml(option.sourceMode)}">${escapeHtml(getPaperBuilderSourceTypeName(option.sourceMode))}</b>
+                  ${escapeHtml(option.questionType)}
+                </span>
                 <span class="paper-type-count-control">
-                  <input class="paper-type-count-input" type="number" min="1" max="20" value="${escapeHtml(questionCount)}" data-count-key="${escapeHtml(key)}" data-category-name="${escapeHtml(categoryName)}" data-question-type="${escapeHtml(questionType)}" ${checked ? "" : "disabled"} />
+                  <input class="paper-type-count-input" type="number" min="1" max="20" value="${escapeHtml(questionCount)}" data-count-key="${escapeHtml(key)}" data-category-name="${escapeHtml(categoryName)}" data-source-mode="${escapeHtml(option.sourceMode)}" data-question-type="${escapeHtml(option.questionType)}" ${checked ? "" : "disabled"} />
                   <em>${text.paper_count_suffix}</em>
                 </span>
               </label>
             `;
           })
           .join("")
-      : `<div class="type-check-empty">${text.no_generated_type}</div>`;
+      : `<div class="type-check-empty">\u6682\u65e0${getPaperBuilderSourceTypeName()}</div>`;
 
     card.innerHTML = `
       <div class="type-card-head">
         <div>
           <h3>${escapeHtml(categoryName)}</h3>
-          <p>${typeCounts.length} \u4e2a\u9519\u9898\u6982\u89c8\u9898\u578b</p>
+          <p>${typeOptions.length} \u4e2a${getPaperBuilderSourceTypeName()}</p>
         </div>
       </div>
       <details class="multi-select" data-category-name="${escapeHtml(categoryName)}">
@@ -1463,16 +1612,17 @@ function renderPaperBuilderPreview() {
     .join("");
 }
 
-function updatePaperBuilderSelection(categoryName, questionType, isSelected) {
+function updatePaperBuilderSelection(categoryName, sourceMode, questionType, isSelected) {
   const current = new Set(paperBuilderSelections[categoryName] || []);
+  const selectionKey = getPaperBuilderSelectionKey(sourceMode, questionType);
   if (isSelected) {
-    current.add(questionType);
+    current.add(selectionKey);
   } else {
-    current.delete(questionType);
+    current.delete(selectionKey);
   }
   paperBuilderSelections[categoryName] = [...current];
   updatePaperBuilderSummary(categoryName);
-  updatePaperBuilderCountInput(categoryName, questionType, isSelected);
+  updatePaperBuilderCountInput(categoryName, sourceMode, questionType, isSelected);
   clearCurrentPaperPreview();
   updatePaperBuilderActionState();
 }
@@ -1485,16 +1635,16 @@ function updatePaperBuilderSummary(categoryName) {
     return;
   }
 
-  const typeCounts = getPaperBuilderTypeCounts(categoryName);
-  const selectedTypes = paperBuilderSelections[categoryName] || [];
+  const typeOptions = getPaperBuilderTypeOptions(categoryName);
+  const selectedKeys = paperBuilderSelections[categoryName] || [];
   const summaryText = details.querySelector("summary span");
   if (summaryText) {
-    summaryText.textContent = `\u5df2\u9009 ${selectedTypes.length} / ${typeCounts.length} \u4e2a\u9898\u578b`;
+    summaryText.textContent = `\u5df2\u9009 ${selectedKeys.length} / ${typeOptions.length} \u4e2a\u9898\u578b`;
   }
 }
 
-function updatePaperBuilderCountInput(categoryName, questionType, isEnabled) {
-  const key = getPaperBuilderKey(categoryName, questionType);
+function updatePaperBuilderCountInput(categoryName, sourceMode, questionType, isEnabled) {
+  const key = getPaperBuilderKey(categoryName, sourceMode, questionType);
   const input = [...paperBuilderGroups.querySelectorAll(".paper-type-count-input")].find(
     (node) => node.dataset.countKey === key,
   );
@@ -1503,8 +1653,8 @@ function updatePaperBuilderCountInput(categoryName, questionType, isEnabled) {
   }
 }
 
-function updatePaperBuilderCount(categoryName, questionType, value) {
-  const key = getPaperBuilderKey(categoryName, questionType);
+function updatePaperBuilderCount(categoryName, sourceMode, questionType, value) {
+  const key = getPaperBuilderKey(categoryName, sourceMode, questionType);
   const safeValue = Math.min(20, Math.max(1, Math.trunc(Number(value || 5))));
   paperBuilderCounts[key] = Number.isFinite(safeValue) ? safeValue : 5;
   const input = [...paperBuilderGroups.querySelectorAll(".paper-type-count-input")].find(
@@ -1724,17 +1874,80 @@ function renderAnswerQuestion(question, questionIndex) {
   `;
 }
 
+function waitForImages(container) {
+  const images = Array.from(container.querySelectorAll("img"));
+  if (!images.length) {
+    return Promise.resolve();
+  }
+
+  return Promise.all(
+    images.map((image) => {
+      if (image.complete && image.naturalWidth > 0) {
+        return Promise.resolve();
+      }
+
+      return new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+        setTimeout(resolve, 3000);
+      });
+    }),
+  );
+}
+
+function waitForPrintLayout() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
+}
+
+function clearPrintClasses() {
+  document.body.classList.remove("printing-host", "printing-paper", "printing-archive-paper", "printing-archive-answer");
+  const printHost = document.querySelector("#printHost");
+  if (printHost) {
+    printHost.innerHTML = "";
+  }
+}
+
+function getPrintHost() {
+  let printHost = document.querySelector("#printHost");
+  if (!printHost) {
+    printHost = document.createElement("div");
+    printHost.id = "printHost";
+    document.body.appendChild(printHost);
+  }
+  return printHost;
+}
+
+function preparePrintHost(container) {
+  const printHost = getPrintHost();
+  const clone = container.cloneNode(true);
+  clone.removeAttribute("id");
+  clone.hidden = false;
+  printHost.innerHTML = "";
+  printHost.appendChild(clone);
+  return printHost;
+}
+
+async function printReadySheet(container) {
+  await waitForImages(container);
+  const printHost = preparePrintHost(container);
+  document.body.classList.add("printing-host");
+  await waitForImages(printHost);
+  await waitForPrintLayout();
+  window.print();
+  setTimeout(clearPrintClasses, 30000);
+}
+
 function exportPaperAsPdf() {
   if (paperSheet.hidden) {
     setStatus("\u8bf7\u5148\u9009\u62e9\u8981\u7ec4\u5377\u7684\u9898\u578b");
     return;
   }
 
-  document.body.classList.add("printing-paper");
-  window.print();
-  setTimeout(() => {
-    document.body.classList.remove("printing-paper");
-  }, 600);
+  printReadySheet(paperSheet);
 }
 
 function exportArchivedPaperAsPdf(kind) {
@@ -1745,15 +1958,11 @@ function exportArchivedPaperAsPdf(kind) {
     return;
   }
 
-  document.body.classList.add(kind === "answer" ? "printing-archive-answer" : "printing-archive-paper");
-  window.print();
-  setTimeout(() => {
-    document.body.classList.remove("printing-archive-paper", "printing-archive-answer");
-  }, 600);
+  printReadySheet(activeSheet);
 }
 
 window.addEventListener("afterprint", () => {
-  document.body.classList.remove("printing-paper", "printing-archive-paper", "printing-archive-answer");
+  clearPrintClasses();
 });
 
 async function loadQuestionTypes() {
@@ -1947,23 +2156,44 @@ clearGeneratedBtn.addEventListener("click", () => {
   setStatus(text.loaded_generated);
 });
 
+paperSourceModeInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    syncPaperBuilderSourceModes();
+  });
+});
+
 paperBuilderGroups.addEventListener("change", (event) => {
   const checkbox = event.target.closest("input[type='checkbox'][data-category-name]");
   if (checkbox) {
-    updatePaperBuilderSelection(checkbox.dataset.categoryName, checkbox.value, checkbox.checked);
+    updatePaperBuilderSelection(
+      checkbox.dataset.categoryName,
+      checkbox.dataset.sourceMode,
+      checkbox.value,
+      checkbox.checked,
+    );
     return;
   }
 
   const countInput = event.target.closest(".paper-type-count-input");
   if (countInput) {
-    updatePaperBuilderCount(countInput.dataset.categoryName, countInput.dataset.questionType, countInput.value);
+    updatePaperBuilderCount(
+      countInput.dataset.categoryName,
+      countInput.dataset.sourceMode,
+      countInput.dataset.questionType,
+      countInput.value,
+    );
   }
 });
 
 paperBuilderGroups.addEventListener("input", (event) => {
   const countInput = event.target.closest(".paper-type-count-input");
   if (!countInput) return;
-  updatePaperBuilderCount(countInput.dataset.categoryName, countInput.dataset.questionType, countInput.value);
+  updatePaperBuilderCount(
+    countInput.dataset.categoryName,
+    countInput.dataset.sourceMode,
+    countInput.dataset.questionType,
+    countInput.value,
+  );
 });
 
 generatePaperQuestionsBtn.addEventListener("click", generatePaperQuestionsByTypes);
@@ -2121,3 +2351,4 @@ form.addEventListener("submit", async (event) => {
 });
 
 initText();
+

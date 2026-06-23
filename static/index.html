@@ -292,10 +292,19 @@
 
             <div class="paper-builder-layout">
               <aside class="paper-builder-controls">
-                <section class="paper-builder-mode">
-                  <h3 data-i18n="paper_mode_title"></h3>
-                  <p data-i18n="paper_mode_generate"></p>
-                  <button class="primary" type="button" id="generatePaperQuestionsBtn" data-i18n="generate_paper_questions_button"></button>
+                <section class="paper-builder-mode paper-source-mode">
+                  <h3 data-i18n="paper_source_title"></h3>
+                  <div class="paper-source-toggle" role="group" aria-label="生成来源">
+                    <label>
+                      <input type="checkbox" name="paper_source_mode" value="wrong" checked />
+                      <span data-i18n="paper_source_wrong"></span>
+                    </label>
+                    <label>
+                      <input type="checkbox" name="paper_source_mode" value="correct" />
+                      <span data-i18n="paper_source_correct"></span>
+                    </label>
+                  </div>
+                  <p id="paperSourceHint"></p>
                 </section>
                 <section class="paper-builder-mode">
                   <h3 data-i18n="paper_full_mode_title"></h3>
@@ -309,6 +318,11 @@
                     </select>
                   </label>
                   <button class="primary" type="button" id="generateFullPaperBtn" data-i18n="generate_full_paper_button"></button>
+                </section>
+                <section class="paper-builder-mode">
+                  <h3 data-i18n="paper_mode_title"></h3>
+                  <p data-i18n="paper_mode_generate"></p>
+                  <button class="primary" type="button" id="generatePaperQuestionsBtn" data-i18n="generate_paper_questions_button"></button>
                 </section>
                 <div class="paper-builder-grid" id="paperBuilderGroups"></div>
               </aside>

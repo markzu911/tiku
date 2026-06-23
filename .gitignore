@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+exam_bank.db

@@ -32,6 +32,7 @@ class GenerateSimilarRequest(BaseModel):
     question_ids: list[int] = Field(default_factory=list)
     category_name: str | None = None
     question_type: str | None = None
+    source_mode: str = Field(default="wrong")
     count: int = Field(default=5, ge=1, le=20)
 
 
@@ -68,6 +69,10 @@ def list_questions(db: Session = Depends(get_db)):
 
 @app.post("/api/generate-similar")
 async def generate_similar(request: GenerateSimilarRequest, db: Session = Depends(get_db)):
+    source_mode = (request.source_mode or "wrong").strip().lower()
+    if source_mode not in {"wrong", "correct"}:
+        raise HTTPException(status_code=400, detail="source_mode must be wrong or correct")
+
     query = db.query(Question).options(
         joinedload(Question.category),
         joinedload(Question.type),
@@ -84,15 +89,18 @@ async def generate_similar(request: GenerateSimilarRequest, db: Session = Depend
             query = query.filter(Question.type.has(question_type=request.question_type))
 
     candidates = query.order_by(Question.id.desc()).limit(200).all()
-    wrong_questions = [question for question in candidates if _is_wrong_question(question)]
-    if not wrong_questions:
-        raise HTTPException(status_code=404, detail="no wrong questions found for generation")
+    source_predicate = _is_correct_question if source_mode == "correct" else _is_wrong_question
+    source_questions = [question for question in candidates if source_predicate(question)]
+    if not source_questions:
+        detail = "no correct questions found for generation" if source_mode == "correct" else "no wrong questions found for generation"
+        raise HTTPException(status_code=404, detail=detail)
 
-    source_questions = [_serialize_question(question) for question in wrong_questions[:10]]
-    generated_questions = await generate_similar_questions(source_questions, request.count)
+    serialized_sources = [_serialize_question(question) for question in source_questions[:10]]
+    generated_questions = await generate_similar_questions(serialized_sources, request.count)
     return {
-        "source_count": len(wrong_questions),
-        "source_questions": source_questions,
+        "source_mode": source_mode,
+        "source_count": len(source_questions),
+        "source_questions": serialized_sources,
         "questions": generated_questions,
     }
 
@@ -288,6 +296,10 @@ def _serialize_generated_paper(paper: GeneratedPaper):
 
 def _is_wrong_question(question: Question) -> bool:
     return _infer_correctness(question) is False
+
+
+def _is_correct_question(question: Question) -> bool:
+    return _infer_correctness(question) is True
 
 
 def _infer_correctness(question: Question) -> bool | None:
