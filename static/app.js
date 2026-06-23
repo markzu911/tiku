@@ -1110,11 +1110,12 @@ function renderPaperBuilderPreview() {
 
 function renderPaperBuilder() {
   const wrongCount = mistakeQuestions.length;
+  const selectedGrade = fullPaperGradeSelect.value;
   builderTotal.textContent = `\u5171 ${wrongCount} \u9053\u9519\u9898\u53ef\u9009`;
   paperBuilderGroups.innerHTML = "";
 
   paperBuilderCategories.forEach((categoryName) => {
-    const typeCounts = getPaperBuilderTypeCounts(categoryName);
+    const typeCounts = getPaperBuilderTypeCounts(categoryName, selectedGrade);
     const selectedTypes = paperBuilderSelections[categoryName] || [];
     const card = document.createElement("article");
     card.className = "paper-type-group";
@@ -1579,13 +1580,21 @@ mistakeSearchInput.addEventListener("input", renderMistakes);
 generateMistakesBtn.addEventListener("click", () => generateFromMistakes());
 saveGeneratedPaperBtn.addEventListener("click", saveGeneratedPaper);
 generatePaperQuestionsBtn.addEventListener("click", () => generatePaperFromPairs(getSelectedPaperBuilderPairs()));
+fullPaperGradeSelect.addEventListener("change", () => {
+  paperBuilderSelections = {};
+  paperBuilderCounts = {};
+  renderPaperBuilder();
+});
 generateFullPaperBtn.addEventListener("click", () => {
-  const { pairs, shortages } = buildFullPaperPairs(fullPaperGradeSelect.value);
+  const gradeLevel = fullPaperGradeSelect.value;
+  console.log('Selected grade level:', gradeLevel);
+  const { pairs, shortages } = buildFullPaperPairs(gradeLevel);
+  console.log('Generated pairs:', pairs, 'Shortages:', shortages);
   if (shortages.length) {
-    setStatus(`${text[`grade_${fullPaperGradeSelect.value}`]}\u9519\u9898\u9898\u578b\u4e0d\u8db3\uff1a${shortages.join("\uff1b")}`);
+    setStatus(`${text[`grade_${gradeLevel}`]}\u9519\u9898\u9898\u578b\u4e0d\u8db3\uff1a${shortages.join("\uff1b")}`);
     return;
   }
-  generatePaperFromPairs(pairs, `${text[`grade_${fullPaperGradeSelect.value}`]}\u4e00\u952e\u5b8c\u6574\u8bd5\u5377`);
+  generatePaperFromPairs(pairs, `${text[`grade_${gradeLevel}`]}\u4e00\u952e\u5b8c\u6574\u8bd5\u5377`);
 });
 clearPaperBuilderBtn.addEventListener("click", () => {
   paperBuilderSelections = {};

@@ -580,6 +580,44 @@ h2 {
   color: var(--muted);
 }
 
+.upload-notice {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 16px;
+  padding: 12px 14px;
+}
+
+.upload-notice p {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+}
+
+.upload-notice ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.upload-notice li {
+  margin: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.upload-notice li::before {
+  color: #2563eb;
+  content: "•";
+  font-weight: bold;
+  left: 4px;
+  position: absolute;
+}
+
 .actions {
   display: grid;
   gap: 10px;
@@ -1937,6 +1975,7 @@ select:focus-visible,
 
 .paper-custom-multiselect {
   position: relative;
+  width: 100%;
 }
 
 .paper-multiselect-trigger {
@@ -1953,6 +1992,7 @@ select:focus-visible,
   text-align: left;
   transition: border-color 160ms ease, box-shadow 160ms ease;
   width: 100%;
+  max-width: 100%;
 }
 
 .paper-multiselect-trigger:hover {
