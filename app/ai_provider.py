@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import HTTPException
+
+load_dotenv()
 
 
 @dataclass(frozen=True)

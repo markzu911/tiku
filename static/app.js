@@ -147,7 +147,7 @@
   paper_mode_generate: "勾选当前来源中的题型，并设置每个题型要生成的题目数量。",
   generate_paper_questions_button: "\u751f\u6210\u65b0\u9898\u5e76\u7ec4\u5377",
   paper_full_mode_title: "\u4e00\u952e\u751f\u6210\u5b8c\u6574\u8bd5\u5377",
-  paper_full_mode_generate: "按年级随机抽取当前来源中的题型，生成选择题 12 题、填空题 12 题、应用题 8 题。",
+  paper_full_mode_generate: "按年级从已勾选来源的题型总数中随机抽取，生成选择题 12 题、填空题 12 题、应用题 8 题。",
   paper_full_grade_label: "\u5e74\u7ea7",
   generate_full_paper_button: "\u4e00\u952e\u751f\u6210\u5b8c\u6574\u8bd5\u5377",
   paper_count_suffix: "\u9898",
@@ -249,7 +249,7 @@ let questionTypes = [];
 let generatedQuestions = loadGeneratedQuestions();
 let generatedPapers = [];
 let activeGeneratedPaperId = null;
-let paperBuilderSourceModes = ["wrong"];
+let paperBuilderSourceModes = ["wrong", "correct"];
 let paperBuilderSelections = {};
 let paperBuilderCounts = {};
 let paperBuilderGeneratedQuestions = [];
