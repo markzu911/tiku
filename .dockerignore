@@ -1,0 +1,11 @@
+.git
+.idea
+.venv
+__pycache__
+*.py[cod]
+.env
+.model-provider.json
+debug
+exam_bank.db
+runtime
+UI_ENHANCEMENT_SUMMARY.md

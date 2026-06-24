@@ -1,0 +1,210 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 432B done
+#1 DONE 0.0s
+
+#2 [auth] library/python:pull token for registry-1.docker.io
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.11-slim
+#3 DONE 2.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 158B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 1.68kB done
+#5 DONE 0.0s
+
+#6 [1/6] FROM docker.io/library/python:3.11-slim@sha256:563c216740fec2091c99b62bea4ba35cd550c31e644510120504d0be3d0eee80
+#6 resolve docker.io/library/python:3.11-slim@sha256:563c216740fec2091c99b62bea4ba35cd550c31e644510120504d0be3d0eee80 0.0s done
+#6 DONE 0.1s
+
+#7 [2/6] WORKDIR /app
+#7 CACHED
+
+#8 [3/6] COPY requirements.txt ./
+#8 DONE 0.1s
+
+#9 [4/6] RUN pip install --no-cache-dir -r requirements.txt     && pip uninstall --yes opencv-python     && pip install --no-cache-dir opencv-python-headless
+#9 3.905 Collecting fastapi==0.115.6 (from -r requirements.txt (line 1))
+#9 5.196   Downloading fastapi-0.115.6-py3-none-any.whl.metadata (27 kB)
+#9 5.792 Collecting uvicorn==0.34.0 (from uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 5.990   Downloading uvicorn-0.34.0-py3-none-any.whl.metadata (6.5 kB)
+#9 8.308 Collecting SQLAlchemy==2.0.36 (from -r requirements.txt (line 3))
+#9 8.507   Downloading SQLAlchemy-2.0.36-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (9.7 kB)
+#9 9.684 Collecting python-dotenv==1.0.1 (from -r requirements.txt (line 4))
+#9 10.07   Downloading python_dotenv-1.0.1-py3-none-any.whl.metadata (23 kB)
+#9 10.30 Collecting httpx==0.28.1 (from -r requirements.txt (line 5))
+#9 10.50   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+#9 11.25 Collecting python-multipart==0.0.20 (from -r requirements.txt (line 6))
+#9 11.88   Downloading python_multipart-0.0.20-py3-none-any.whl.metadata (1.8 kB)
+#9 12.27 Collecting PyMySQL==1.1.1 (from -r requirements.txt (line 7))
+#9 12.91   Downloading PyMySQL-1.1.1-py3-none-any.whl.metadata (4.4 kB)
+#9 14.67 Collecting Pillow==11.0.0 (from -r requirements.txt (line 8))
+#9 16.44   Downloading pillow-11.0.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (9.1 kB)
+#9 17.98 Collecting rapidocr-onnxruntime==1.2.3 (from -r requirements.txt (line 9))
+#9 18.18   Downloading rapidocr_onnxruntime-1.2.3-py3-none-any.whl.metadata (4.8 kB)
+#9 18.79 Collecting starlette<0.42.0,>=0.40.0 (from fastapi==0.115.6->-r requirements.txt (line 1))
+#9 18.98   Downloading starlette-0.41.3-py3-none-any.whl.metadata (6.0 kB)
+#9 19.89 Collecting pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4 (from fastapi==0.115.6->-r requirements.txt (line 1))
+#9 20.61   Downloading pydantic-2.13.4-py3-none-any.whl.metadata (109 kB)
+#9 21.60      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 109.4/109.4 kB 100.1 kB/s eta 0:00:00
+#9 22.57 Collecting typing-extensions>=4.8.0 (from fastapi==0.115.6->-r requirements.txt (line 1))
+#9 22.77   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+#9 23.17 Collecting click>=7.0 (from uvicorn==0.34.0->uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 23.36   Downloading click-8.4.1-py3-none-any.whl.metadata (2.6 kB)
+#9 24.12 Collecting h11>=0.8 (from uvicorn==0.34.0->uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 24.83   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+#9 26.27 Collecting greenlet!=0.4.17 (from SQLAlchemy==2.0.36->-r requirements.txt (line 3))
+#9 26.90   Downloading greenlet-3.5.2-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+#9 27.97 Collecting anyio (from httpx==0.28.1->-r requirements.txt (line 5))
+#9 28.17   Downloading anyio-4.14.0-py3-none-any.whl.metadata (4.6 kB)
+#9 28.56 Collecting certifi (from httpx==0.28.1->-r requirements.txt (line 5))
+#9 28.76   Downloading certifi-2026.6.17-py3-none-any.whl.metadata (2.5 kB)
+#9 29.16 Collecting httpcore==1.* (from httpx==0.28.1->-r requirements.txt (line 5))
+#9 29.36   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+#9 30.18 Collecting idna (from httpx==0.28.1->-r requirements.txt (line 5))
+#9 30.88   Downloading idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+#9 31.40 Collecting pyclipper>=1.2.1 (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 31.60   Downloading pyclipper-1.4.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (8.6 kB)
+#9 32.38 Collecting onnxruntime>=1.7.0 (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 32.58   Downloading onnxruntime-1.27.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (5.4 kB)
+#9 33.26 Collecting opencv-python>=4.5.1.48 (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 33.64   Downloading opencv_python-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+#9 35.11 Collecting numpy>=1.19.3 (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 35.81   Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+#9 36.48 Collecting six>=1.15.0 (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 37.18   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+#9 38.32 Collecting Shapely>=1.7.1 (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 38.52   Downloading shapely-2.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.8 kB)
+#9 39.25 Collecting PyYAML (from rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 39.45   Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+#9 40.58 Collecting httptools>=0.6.3 (from uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 40.78   Downloading httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+#9 42.70 Collecting uvloop!=0.15.0,!=0.15.1,>=0.14.0 (from uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 42.90   Downloading uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (4.9 kB)
+#9 43.97 Collecting watchfiles>=0.13 (from uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 44.59   Downloading watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+#9 46.24 Collecting websockets>=10.4 (from uvicorn[standard]==0.34.0->-r requirements.txt (line 2))
+#9 46.95   Downloading websockets-16.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+#9 47.23 Collecting flatbuffers (from onnxruntime>=1.7.0->rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 48.82   Downloading flatbuffers-25.12.19-py2.py3-none-any.whl.metadata (1.0 kB)
+#9 49.76 Collecting packaging (from onnxruntime>=1.7.0->rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 49.95   Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+#9 53.20 Collecting protobuf>=4.25.8 (from onnxruntime>=1.7.0->rapidocr-onnxruntime==1.2.3->-r requirements.txt (line 9))
+#9 53.39   Downloading protobuf-7.35.1-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+#9 53.62 Collecting annotated-types>=0.6.0 (from pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4->fastapi==0.115.6->-r requirements.txt (line 1))
+#9 54.00   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+#9 60.60 Collecting pydantic-core==2.46.4 (from pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4->fastapi==0.115.6->-r requirements.txt (line 1))
+#9 60.80   Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+#9 61.01 Collecting typing-inspection>=0.4.2 (from pydantic!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0,>=1.7.4->fastapi==0.115.6->-r requirements.txt (line 1))
+#9 61.21   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+#9 61.98 Downloading fastapi-0.115.6-py3-none-any.whl (94 kB)
+#9 62.20    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 94.8/94.8 kB 389.5 kB/s eta 0:00:00
+#9 62.40 Downloading uvicorn-0.34.0-py3-none-any.whl (62 kB)
+#9 63.80    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 62.3/62.3 kB 73.9 kB/s eta 0:00:00
+#9 64.37 Downloading SQLAlchemy-2.0.36-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.2 MB)
+#9 79.26    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 214.5 kB/s eta 0:00:00
+#9 79.64 Downloading python_dotenv-1.0.1-py3-none-any.whl (19 kB)
+#9 79.97 Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+#9 80.64    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.5/73.5 kB 94.9 kB/s eta 0:00:00
+#9 81.35 Downloading python_multipart-0.0.20-py3-none-any.whl (24 kB)
+#9 81.60 Downloading PyMySQL-1.1.1-py3-none-any.whl (44 kB)
+#9 81.97    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.0/45.0 kB 9.8 MB/s eta 0:00:00
+#9 82.37 Downloading pillow-11.0.0-cp311-cp311-manylinux_2_28_x86_64.whl (4.4 MB)
+#9 91.92    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.4/4.4 MB 457.2 kB/s eta 0:00:00
+#9 92.31 Downloading rapidocr_onnxruntime-1.2.3-py3-none-any.whl (12.3 MB)
+#9 112.5    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.3/12.3 MB 803.4 kB/s eta 0:00:00
+#9 112.9 Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+#9 113.1    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.8/78.8 kB 21.1 MB/s eta 0:00:00
+#9 113.6 Downloading click-8.4.1-py3-none-any.whl (116 kB)
+#9 113.7    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 116.6/116.6 kB 21.6 MB/s eta 0:00:00
+#9 114.0 Downloading greenlet-3.5.2-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (616 kB)
+#9 114.8    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 616.9/616.9 kB 828.8 kB/s eta 0:00:00
+#9 115.2 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+#9 116.0 Downloading httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (464 kB)
+#9 116.3    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 464.7/464.7 kB 1.8 MB/s eta 0:00:00
+#9 116.5 Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
+#9 129.9    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 1.2 MB/s eta 0:00:00
+#9 130.1 Downloading onnxruntime-1.27.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (18.6 MB)
+#9 156.1    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18.6/18.6 MB 697.1 kB/s eta 0:00:00
+#9 156.6 Downloading opencv_python-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl (72.9 MB)
+#9 258.0    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 72.9/72.9 MB 509.0 kB/s eta 0:00:00
+#9 258.7 Downloading pyclipper-1.4.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (989 kB)
+#9 262.4    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 989.6/989.6 kB 276.9 kB/s eta 0:00:00
+#9 263.6 Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
+#9 265.1    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 472.3/472.3 kB 316.9 kB/s eta 0:00:00
+#9 266.0 Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+#9 272.6    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 314.6 kB/s eta 0:00:00
+#9 273.1 Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
+#9 275.5    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 337.5 kB/s eta 0:00:00
+#9 275.7 Downloading shapely-2.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.1 MB)
+#9 280.9    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.1/3.1 MB 689.3 kB/s eta 0:00:00
+#9 281.7 Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+#9 282.8 Downloading starlette-0.41.3-py3-none-any.whl (73 kB)
+#9 283.7    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.2/73.2 kB 8.4 MB/s eta 0:00:00
+#9 284.2 Downloading anyio-4.14.0-py3-none-any.whl (123 kB)
+#9 285.8    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 123.5/123.5 kB 394.9 kB/s eta 0:00:00
+#9 286.1 Downloading idna-3.18-py3-none-any.whl (65 kB)
+#9 287.0    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 65.5/65.5 kB 114.4 kB/s eta 0:00:00
+#9 287.2 Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+#9 288.1    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 44.6/44.6 kB 38.5 MB/s eta 0:00:00
+#9 288.7 Downloading uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.8 MB)
+#9 294.2    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 694.0 kB/s eta 0:00:00
+#9 294.9 Downloading watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (456 kB)
+#9 296.3    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 456.9/456.9 kB 620.7 kB/s eta 0:00:00
+#9 296.8 Downloading websockets-16.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (184 kB)
+#9 297.5    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 184.6/184.6 kB 598.1 kB/s eta 0:00:00
+#9 298.2 Downloading certifi-2026.6.17-py3-none-any.whl (133 kB)
+#9 298.4    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 133.3/133.3 kB 703.9 kB/s eta 0:00:00
+#9 298.6 Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+#9 299.8 Downloading protobuf-7.35.1-cp310-abi3-manylinux2014_x86_64.whl (327 kB)
+#9 300.6    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 327.1/327.1 kB 440.0 kB/s eta 0:00:00
+#9 301.3 Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+#9 301.8 Downloading flatbuffers-25.12.19-py2.py3-none-any.whl (26 kB)
+#9 303.6 Downloading packaging-26.2-py3-none-any.whl (100 kB)
+#9 304.3    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100.2/100.2 kB 125.1 kB/s eta 0:00:00
+#9 304.6 Installing collected packages: flatbuffers, websockets, uvloop, typing-extensions, six, PyYAML, python-multipart, python-dotenv, PyMySQL, pyclipper, protobuf, Pillow, packaging, numpy, idna, httptools, h11, greenlet, click, certifi, annotated-types, uvicorn, typing-inspection, SQLAlchemy, Shapely, pydantic-core, opencv-python, onnxruntime, httpcore, anyio, watchfiles, starlette, rapidocr-onnxruntime, pydantic, httpx, fastapi
+#9 310.4 Successfully installed Pillow-11.0.0 PyMySQL-1.1.1 PyYAML-6.0.3 SQLAlchemy-2.0.36 Shapely-2.1.2 annotated-types-0.7.0 anyio-4.14.0 certifi-2026.6.17 click-8.4.1 fastapi-0.115.6 flatbuffers-25.12.19 greenlet-3.5.2 h11-0.16.0 httpcore-1.0.9 httptools-0.8.0 httpx-0.28.1 idna-3.18 numpy-2.4.6 onnxruntime-1.27.0 opencv-python-4.13.0.92 packaging-26.2 protobuf-7.35.1 pyclipper-1.4.0 pydantic-2.13.4 pydantic-core-2.46.4 python-dotenv-1.0.1 python-multipart-0.0.20 rapidocr-onnxruntime-1.2.3 six-1.17.0 starlette-0.41.3 typing-extensions-4.15.0 typing-inspection-0.4.2 uvicorn-0.34.0 uvloop-0.22.1 watchfiles-1.2.0 websockets-16.0
+#9 310.4 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#9 312.5 
+#9 312.5 [notice] A new release of pip is available: 24.0 -> 26.1.2
+#9 312.5 [notice] To update, run: pip install --upgrade pip
+#9 314.3 Found existing installation: opencv-python 4.13.0.92
+#9 314.3 Uninstalling opencv-python-4.13.0.92:
+#9 314.3   Successfully uninstalled opencv-python-4.13.0.92
+#9 314.3 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#9 319.3 Collecting opencv-python-headless
+#9 322.3   Downloading opencv_python_headless-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+#9 322.3 Requirement already satisfied: numpy>=2 in /usr/local/lib/python3.11/site-packages (from opencv-python-headless) (2.4.6)
+#9 322.5 Downloading opencv_python_headless-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl (60.4 MB)
+#9 430.0    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 60.4/60.4 MB 1.4 MB/s eta 0:00:00
+#9 430.2 Installing collected packages: opencv-python-headless
+#9 430.9 Successfully installed opencv-python-headless-4.13.0.92
+#9 430.9 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#9 432.6 
+#9 432.6 [notice] A new release of pip is available: 24.0 -> 26.1.2
+#9 432.6 [notice] To update, run: pip install --upgrade pip
+#9 DONE 432.7s
+
+#10 [5/6] COPY app ./app
+#10 DONE 0.1s
+
+#11 [6/6] COPY static ./static
+#11 DONE 0.1s
+
+#12 exporting to image
+#12 exporting layers
+#12 exporting layers 10.5s done
+#12 exporting manifest sha256:1892324263293c85abc744600ecde5b12ba484199c3fec1784d0abcc4237cc8c 0.0s done
+#12 exporting config sha256:f347f52110a4921985783ef0111b0378e01d7bf1bd6fc2009622c5fcb4456d68 0.0s done
+#12 exporting attestation manifest sha256:2ec79b452e8f6f3699b3206437a79c97c9fd496eef7e42a3e383602eb26412b3 0.1s done
+#12 exporting manifest list sha256:9a89cf2e2577f29c79f26cccd76e663605ad27ebd8fa2e7e19996284fb036ec5
+#12 exporting manifest list sha256:9a89cf2e2577f29c79f26cccd76e663605ad27ebd8fa2e7e19996284fb036ec5 0.0s done
+#12 naming to docker.io/library/exam-bank:local done
+#12 unpacking to docker.io/library/exam-bank:local
+#12 unpacking to docker.io/library/exam-bank:local 2.0s done
+#12 DONE 12.8s

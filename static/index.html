@@ -75,7 +75,15 @@
             <h1 id="pageTitle"></h1>
             <p id="pageSubtitle"></p>
           </div>
-          <div class="status" id="status" aria-live="polite"></div>
+          <div class="topbar-actions">
+            <label class="model-provider-control">
+              <span>识别与出题模型</span>
+              <select id="modelProviderSelect" aria-label="识别与出题模型" disabled>
+                <option>加载模型配置中</option>
+              </select>
+            </label>
+            <div class="status" id="status" aria-live="polite"></div>
+          </div>
         </header>
 
         <section class="view active" id="uploadView">
@@ -345,6 +353,14 @@
 
             <div class="paper-builder-layout">
               <aside class="paper-builder-controls">
+                <section class="paper-builder-mode paper-source-mode" aria-labelledby="paperSourceHeading">
+                  <h3 id="paperSourceHeading">题型来源</h3>
+                  <div class="paper-source-options">
+                    <label class="paper-source-option"><input type="checkbox" name="paper-source" value="incorrect" checked /><span>错题题型</span><em>答错的题目</em></label>
+                    <label class="paper-source-option"><input type="checkbox" name="paper-source" value="correct" /><span>正确题型</span><em>答对的题目</em></label>
+                  </div>
+                  <p>可单选，也可同时选择两类题型。</p>
+                </section>
                 <section class="paper-builder-mode">
                   <h3>按题型生成试卷</h3>
                   <button class="primary" type="button" id="generatePaperQuestionsBtn">生成新题并组卷</button>
@@ -363,7 +379,7 @@
                 </div>
                 <div class="empty" id="builderEmptyState"></div>
                 <article class="paper-sheet" id="paperSheet" hidden>
-                  <header class="paper-sheet-head"><h2>错题巩固练习</h2><div class="paper-sheet-meta"><span>姓名：____________</span><span>日期：____________</span><span>得分：____________</span></div></header>
+                  <header class="paper-sheet-head"><h2>题型巩固练习</h2><div class="paper-sheet-meta"><span>姓名：____________</span><span>日期：____________</span><span>得分：____________</span></div></header>
                   <div id="paperSheetBody"></div>
                 </article>
               </div>

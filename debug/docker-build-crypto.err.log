@@ -1,0 +1,54 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 484B done
+#1 DONE 0.0s
+
+#2 [auth] library/python:pull token for registry-1.docker.io
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.11-slim
+#3 DONE 2.6s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 158B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 1.68kB done
+#5 DONE 0.0s
+
+#6 [1/7] FROM docker.io/library/python:3.11-slim@sha256:563c216740fec2091c99b62bea4ba35cd550c31e644510120504d0be3d0eee80
+#6 resolve docker.io/library/python:3.11-slim@sha256:563c216740fec2091c99b62bea4ba35cd550c31e644510120504d0be3d0eee80 0.1s done
+#6 DONE 0.1s
+
+#7 [4/7] RUN pip install --no-cache-dir -r requirements.txt     && pip uninstall --yes opencv-python     && pip install --no-cache-dir opencv-python-headless
+#7 CACHED
+
+#8 [5/7] RUN pip install --no-cache-dir cryptography==46.0.5
+#8 CACHED
+
+#9 [6/7] COPY app ./app
+#9 CACHED
+
+#10 [2/7] WORKDIR /app
+#10 CACHED
+
+#11 [3/7] COPY requirements.txt ./
+#11 CACHED
+
+#12 [7/7] COPY static ./static
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 11.2s done
+#13 exporting manifest sha256:2683cfa94ac19338c51c0383d8fe7dc87e9a32586fd20f641c7e2fd771efe472 0.0s done
+#13 exporting config sha256:b4c7aa136f1f79ace5307842c3b38e9f0746e313b65a4c6c19646d6afabd4ecc 0.0s done
+#13 exporting attestation manifest sha256:e7613a7e8fe1e866a93c1389d56ed2d4a3954a8040e54b4c091e56e78e1f28a5
+#13 exporting attestation manifest sha256:e7613a7e8fe1e866a93c1389d56ed2d4a3954a8040e54b4c091e56e78e1f28a5 0.1s done
+#13 exporting manifest list sha256:d9f449677b70d24df3557a54b6142afe9d29f166e8c13b61d162964ad88d9bbf 0.0s done
+#13 naming to docker.io/library/exam-bank:local done
+#13 unpacking to docker.io/library/exam-bank:local
+#13 unpacking to docker.io/library/exam-bank:local 2.4s done
+#13 DONE 13.9s

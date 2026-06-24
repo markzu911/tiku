@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal, ROUND_HALF_UP
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -12,8 +12,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
-from app.database import get_db, init_db
+from app.database import CATEGORY_NAMES, get_db, init_db
 from app.generation import generate_similar_questions
+from app.model_settings import get_model_provider_status, set_active_model_provider
 from app.models import GeneratedPaper, Paper, Question, QuestionType
 from app.question_service import save_extracted_questions
 from app.vision import extract_questions_from_image, normalize_uploaded_image
@@ -33,6 +34,8 @@ class GenerateSimilarRequest(BaseModel):
     question_ids: list[int] = Field(default_factory=list)
     category_name: str | None = None
     question_type: str | None = None
+    source_verdict: Literal["incorrect", "correct"] | None = None
+    source_verdicts: list[Literal["incorrect", "correct"]] = Field(default_factory=lambda: ["incorrect"])
     count: int = Field(default=5, ge=1, le=20)
 
 
@@ -40,6 +43,10 @@ class SaveGeneratedPaperRequest(BaseModel):
     title: str = Field(default="Generated practice paper", max_length=255)
     source_label: str | None = Field(default=None, max_length=500)
     questions: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ModelProviderRequest(BaseModel):
+    provider: Literal["current", "qwen"]
 
 
 @app.middleware("http")
@@ -59,6 +66,19 @@ def upload_page():
 def health_check(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     return {"status": "ok", "database": "connected"}
+
+
+@app.get("/api/model-provider")
+def get_model_provider():
+    return get_model_provider_status()
+
+
+@app.put("/api/model-provider")
+def update_model_provider(request: ModelProviderRequest):
+    try:
+        return set_active_model_provider(request.provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/questions")
@@ -91,16 +111,22 @@ async def generate_similar(request: GenerateSimilarRequest, db: Session = Depend
         if request.question_type:
             query = query.filter(Question.type.has(question_type=request.question_type))
 
-    wrong_questions = [
-        question for question in query.order_by(Question.id.desc()).limit(200).all() if question.is_correct is False
+    source_verdicts = {request.source_verdict} if request.source_verdict else set(request.source_verdicts)
+    if not source_verdicts:
+        raise HTTPException(status_code=400, detail="at least one source verdict is required")
+    source_questions_in_db = [
+        question
+        for question in query.order_by(Question.id.desc()).limit(200).all()
+        if ("incorrect" in source_verdicts and question.is_correct is False)
+        or ("correct" in source_verdicts and question.is_correct is True)
     ]
-    if not wrong_questions:
-        raise HTTPException(status_code=404, detail="no wrong questions found for generation")
+    if not source_questions_in_db:
+        raise HTTPException(status_code=404, detail="no matching source questions found for generation")
 
-    source_questions = [_serialize_question(question) for question in wrong_questions[:10]]
+    source_questions = [_serialize_question(question) for question in source_questions_in_db[:10]]
     generated_questions = await generate_similar_questions(source_questions, request.count)
     return {
-        "source_count": len(wrong_questions),
+        "source_count": len(source_questions_in_db),
         "source_questions": source_questions,
         "questions": generated_questions,
     }
@@ -221,12 +247,13 @@ async def extract_questions(
     saved_papers = []
     group_id = uuid4().hex
     group_name = None
+    allowed_category_names = list(CATEGORY_NAMES)
 
     for index, file in enumerate(files, start=1):
         image_bytes = await file.read()
         image_bytes, image_mime_type = normalize_uploaded_image(image_bytes, file.content_type)
         await file.seek(0)
-        result = await extract_questions_from_image(file, grade_level)
+        result = await extract_questions_from_image(file, grade_level, allowed_category_names)
 
         if group_name is None:
             group_name = _build_paper_group_name(
@@ -254,6 +281,7 @@ async def extract_questions(
             paper_group_id=group_id,
             paper_group_name=group_name,
             paper_page_index=index,
+            allowed_category_names=allowed_category_names,
         )
         paper_info.setdefault("name", final_paper_name)
         paper_info["saved_count"] = len(saved_questions)

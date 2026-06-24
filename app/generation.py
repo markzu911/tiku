@@ -1,12 +1,12 @@
 import base64
 import json
-import os
 import re
 from typing import Any
 
 import httpx
 from fastapi import HTTPException
 
+from app.model_settings import get_active_model_config
 
 def _extract_json(value: str) -> dict[str, Any]:
     content = str(value or "").strip()
@@ -26,7 +26,7 @@ def _build_generation_prompt(source_questions: list[dict[str, Any]], count: int)
     sources = json.dumps(source_questions, ensure_ascii=False)
     return f"""
 You generate Chinese primary-school mathematics practice questions.
-Create {count} new questions from the supplied wrong-answer examples.
+Create {count} new questions from the supplied source examples.
 
 Rules:
 1. Preserve the source grade_level, category_name, and question_type.
@@ -57,7 +57,7 @@ Return JSON only in this exact shape:
   ]
 }}
 
-Source wrong questions:
+Source questions:
 {sources}
 """.strip()
 
@@ -87,12 +87,13 @@ async def generate_similar_questions(source_questions: list[dict[str, Any]], cou
     if not source_questions:
         raise HTTPException(status_code=400, detail="at least one source question is required")
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    model_config = get_active_model_config()
+    api_key = model_config["api_key"]
     if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+        raise HTTPException(status_code=500, detail=f"{model_config['label']} is not configured")
 
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.getenv("OPENAI_MODEL", "gpt-5.5")
+    base_url = model_config["base_url"]
+    model = model_config["model"]
     safe_count = max(1, min(20, int(count or 1)))
     payload = {
         "model": model,
@@ -136,9 +137,9 @@ async def generate_similar_questions(source_questions: list[dict[str, Any]], cou
                 "B": str(item.get("B") or "").strip(),
                 "C": str(item.get("C") or "").strip(),
                 "D": str(item.get("D") or "").strip(),
-                "grade_level": item.get("grade_level") or fallback.get("grade_level"),
-                "category_name": str(item.get("category_name") or fallback.get("category_name") or "").strip(),
-                "question_type": str(item.get("question_type") or fallback.get("question_type") or "").strip(),
+                "grade_level": fallback.get("grade_level"),
+                "category_name": str(fallback.get("category_name") or "").strip(),
+                "question_type": str(fallback.get("question_type") or "").strip(),
                 "analysis": str(item.get("analysis") or "").strip(),
                 "image_url": _svg_data_url(diagram_svg) if diagram_svg else "",
                 "has_image": bool(diagram_svg),

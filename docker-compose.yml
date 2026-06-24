@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: exam-bank-db
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  app:
+    build: .
+    image: exam-bank:local
+    container_name: exam-bank-app
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${CONTAINER_DATABASE_URL}
+      MODEL_SETTINGS_FILE: /app/runtime/model-provider.json
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-runtime:/app/runtime
+
+volumes:
+  app-runtime:
+    name: exam-bank-runtime
+    external: true
+  mysql-data:
+    name: exam-bank-mysql-data

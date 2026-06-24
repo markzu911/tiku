@@ -20,7 +20,7 @@ const text = {
   generated_title: "\u751f\u6210\u9898\u76ee",
   generated_subtitle: "\u67e5\u770b\u7531\u9519\u9898\u751f\u6210\u7684\u540c\u7c7b\u7ec3\u4e60\u9898\u3002",
   builder_title: "\u667a\u80fd\u7ec4\u5377",
-  builder_subtitle: "\u6309\u9519\u9898\u7ec6\u9898\u578b\u914d\u7f6e\u6570\u91cf\uff0c\u751f\u6210\u5de9\u56fa\u7ec3\u4e60\u8bd5\u5377\u3002",
+  builder_subtitle: "\u6309\u9898\u578b\u914d\u7f6e\u6570\u91cf\uff0c\u751f\u6210\u5de9\u56fa\u7ec3\u4e60\u8bd5\u5377\u3002",
   archive_title: "\u8bd5\u5377\u4e0e\u89e3\u6790",
   archive_subtitle: "\u67e5\u770b\u5df2\u4fdd\u5b58\u7684\u751f\u6210\u8bd5\u5377\u548c\u89e3\u6790\u3002",
   types_title: "\u9898\u578b\u6b63\u9519\u7387",
@@ -64,7 +64,7 @@ const text = {
   empty_mistakes: "\u6682\u65e0\u9519\u9898",
   empty_generated: "\u6682\u65e0\u751f\u6210\u9898\u76ee",
   empty_generated_papers: "\u6682\u65e0\u5df2\u4fdd\u5b58\u8bd5\u5377",
-  empty_builder: "\u5f53\u524d\u7b5b\u9009\u6761\u4ef6\u4e0b\u6682\u65e0\u53ef\u7ec4\u5377\u9519\u9898",
+  empty_builder: "\u5f53\u524d\u7b5b\u9009\u6761\u4ef6\u4e0b\u6682\u65e0\u53ef\u7ec4\u5377\u9898\u76ee",
   waiting: "\u5f85\u4e0a\u4f20",
   list_ready: "\u9898\u76ee\u5217\u8868",
   loading: "\u52a0\u8f7d\u9898\u76ee\u4e2d",
@@ -151,6 +151,7 @@ const extractionMessage = document.querySelector("#extractionMessage");
 const countBadge = document.querySelector("#countBadge");
 const uploadResultFilters = document.querySelector("#uploadResultFilters");
 const statusNode = document.querySelector("#status");
+const modelProviderSelect = document.querySelector("#modelProviderSelect");
 const submitBtn = document.querySelector("#submitBtn");
 const clearBtn = document.querySelector("#clearBtn");
 const pageTitle = document.querySelector("#pageTitle");
@@ -225,6 +226,7 @@ const exportPaperPdfBtn = document.querySelector("#exportPaperPdfBtn");
 const generatePaperQuestionsBtn = document.querySelector("#generatePaperQuestionsBtn");
 const fullPaperGradeSelect = document.querySelector("#fullPaperGradeSelect");
 const generateFullPaperBtn = document.querySelector("#generateFullPaperBtn");
+const paperSourceInputs = document.querySelectorAll('input[name="paper-source"]');
 const builderEmptyState = document.querySelector("#builderEmptyState");
 const paperBuilderGroups = document.querySelector("#paperBuilderGroups");
 const paperPreviewTotal = document.querySelector("#paperPreviewTotal");
@@ -241,6 +243,7 @@ let typeStatusFilter = "all";
 let previewUrls = [];
 let selectedFiles = [];
 let mistakeQuestions = [];
+let paperBuilderQuestions = [];
 let generatedQuestions = loadGeneratedQuestions();
 let generatedPapers = [];
 let activeGeneratedPaperId = null;
@@ -250,6 +253,7 @@ let paperBuilderGeneratedQuestions = [];
 let pendingTypeFilter = "";
 let pendingPaperFilter = null;
 let activePaperFilter = null;
+let openPaperBuilderDropdown = null;
 
 const paperBuilderCategories = ["选择题", "填空题", "应用题"];
 const fullPaperTargets = { "选择题": 12, "填空题": 12, "应用题": 8 };
@@ -347,6 +351,28 @@ function setStatus(value) {
   statusNode.textContent = value;
 }
 
+function renderModelProvider(data) {
+  const options = Array.isArray(data.options) ? data.options : [];
+  modelProviderSelect.innerHTML = options
+    .map((option) => `<option value="${escapeHtml(option.provider)}" ${option.configured ? "" : "disabled"}>${escapeHtml(option.label)}</option>`)
+    .join("");
+  modelProviderSelect.value = data.provider || "current";
+  modelProviderSelect.disabled = options.length === 0;
+}
+
+async function loadModelProvider() {
+  modelProviderSelect.disabled = true;
+  try {
+    const response = await fetch("/api/model-provider");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "加载模型配置失败");
+    renderModelProvider(data);
+  } catch (error) {
+    modelProviderSelect.innerHTML = "<option>模型配置不可用</option>";
+    setStatus(error.message);
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -361,6 +387,17 @@ function renderMathText(value) {
     /(^|[^\w.])(\d{1,3})\s*\/\s*(\d{1,3})(?![\w.])/g,
     '$1<span class="math-fraction"><span>$2</span><span>$3</span></span>',
   );
+}
+
+function displayQuestionText(question) {
+  const textValue = String(question.question_text || "");
+  const hasSeparateOptions = ["A", "B", "C", "D"].some((key) => String(question[key] || "").trim());
+  if (!hasSeparateOptions) return textValue;
+  return textValue
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*[A-D][、.．）)]\s*/.test(line))
+    .join("\n")
+    .trim();
 }
 
 function renderQuestionCards(container, emptyNode, questions, options = {}) {
@@ -398,14 +435,14 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
       <div class="question-meta">
         <span>${escapeHtml(orderText)}</span>
         <span>${escapeHtml(question.grade_level || "")} \u5e74\u7ea7</span>
-        <span>${escapeHtml(question.question_type || "\u672a\u8bc6\u522b\u9898\u578b")}</span>
-        <span>${escapeHtml(question.category_name || "\u672a\u8bc6\u522b\u7c7b\u522b")}</span>
+        <span>${escapeHtml(question.category_name || "\u586b\u7a7a\u9898")}</span>
+        <span>${escapeHtml(question.question_type || question.category_name || "\u672a\u8bc6\u522b\u9898\u578b")}</span>
         ${paperBadge}
         ${imageBadge}
         ${verdictBadge}
       </div>
       <div class="stem">${renderMathText(question.question_stem || "")}</div>
-      <div class="question-text">${renderMathText(question.question_text || "")}</div>
+      <div class="question-text">${renderMathText(displayQuestionText(question))}</div>
       ${imageHtml}
       <div class="options">${optionsHtml}</div>
       <div class="answer-grid">
@@ -817,11 +854,11 @@ function renderMistakes() {
       <div class="question-meta">
         <span>#${index + 1}</span>
         <span>${escapeHtml(question.grade_level || "")} \u5e74\u7ea7</span>
-        <span>${escapeHtml(question.question_type || text.unknown)}</span>
+        <span>${escapeHtml(question.question_type || question.category_name || text.unknown)}</span>
         <span class="badge-verdict incorrect">\u9519\u8bef</span>
       </div>
       <div class="stem">${renderMathText(question.question_stem || "")}</div>
-      <div class="question-text">${renderMathText(question.question_text || "")}</div>
+      <div class="question-text">${renderMathText(displayQuestionText(question))}</div>
       ${question.image_url ? `<img class="question-image" src="${escapeHtml(question.image_url)}" alt="question image" loading="lazy" />` : ""}
       <div class="options">${optionsHtml}</div>
       <div class="answer-grid">
@@ -849,7 +886,7 @@ function renderGeneratedQuestions() {
       <div class="question-meta">
         <span>#${index + 1}</span>
         <span>${escapeHtml(question.grade_level || "")} \u5e74\u7ea7</span>
-        <span>${escapeHtml(question.question_type || text.unknown)}</span>
+        <span>${escapeHtml(question.question_type || question.category_name || text.unknown)}</span>
         <span class="badge-generated">${text.generated_badge}</span>
       </div>
       <div class="stem">${renderMathText(question.question_stem || "")}</div>
@@ -882,7 +919,7 @@ function renderMistakeGeneratedQuestions(questions) {
       <div class="question-meta">
         <span>#${index + 1}</span>
         <span>${escapeHtml(question.grade_level || "")} \u5e74\u7ea7</span>
-        <span>${escapeHtml(question.question_type || text.unknown)}</span>
+        <span>${escapeHtml(question.question_type || question.category_name || text.unknown)}</span>
         <span class="badge-generated">${text.generated_badge}</span>
       </div>
       <div class="stem">${renderMathText(question.question_stem || "")}</div>
@@ -1024,45 +1061,74 @@ async function saveGeneratedPaper() {
   }
 }
 
-function getPaperBuilderTypeCounts(categoryName, gradeLevel = "") {
-  const counts = new Map();
-  mistakeQuestions
-    .filter(
-      (question) =>
-        question.category_name === categoryName &&
-        question.question_type &&
-        (!gradeLevel || String(question.grade_level) === String(gradeLevel)),
-    )
-    .forEach((question) => counts.set(question.question_type, (counts.get(question.question_type) || 0) + 1));
-  return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right, "zh-CN"));
+function getSelectedPaperBuilderSources() {
+  return [...paperSourceInputs].filter((input) => input.checked).map((input) => input.value);
 }
 
-function getPaperBuilderKey(categoryName, questionType) {
-  return `${categoryName}||${questionType}`;
+function getPaperBuilderSourceLabel() {
+  const sources = getSelectedPaperBuilderSources();
+  if (sources.length === 2) return "错题与正确题型";
+  if (sources.includes("incorrect")) return "错题题型";
+  if (sources.includes("correct")) return "正确题型";
+  return "未选择题型来源";
 }
 
-function getPaperBuilderCount(categoryName, questionType) {
-  const value = Number.parseInt(paperBuilderCounts[getPaperBuilderKey(categoryName, questionType)], 10);
+function getPaperBuilderSourceName(sourceVerdict) {
+  return sourceVerdict === "incorrect" ? "错题题型" : "正确题型";
+}
+
+function getPaperBuilderSourceQuestions(categoryName = "", questionType = "", gradeLevel = "", sourceVerdict = "") {
+  const sources = sourceVerdict ? [sourceVerdict] : getSelectedPaperBuilderSources();
+  return paperBuilderQuestions.filter((question) => {
+    const verdict = getQuestionVerdict(question);
+    const matchesSource = (sources.includes("incorrect") && verdict === false) || (sources.includes("correct") && verdict === true);
+    return (
+      matchesSource &&
+      (!categoryName || question.category_name === categoryName) &&
+      (!questionType || question.question_type === questionType) &&
+      (!gradeLevel || String(question.grade_level) === String(gradeLevel))
+    );
+  });
+}
+
+function getPaperBuilderTypeOptions(categoryName, gradeLevel = "") {
+  const options = [];
+  getSelectedPaperBuilderSources().forEach((sourceVerdict) => {
+    const counts = new Map();
+    getPaperBuilderSourceQuestions(categoryName, "", gradeLevel, sourceVerdict)
+      .filter((question) => question.question_type)
+      .forEach((question) => counts.set(question.question_type, (counts.get(question.question_type) || 0) + 1));
+    [...counts.entries()].forEach(([questionType, count]) => {
+      options.push({ sourceVerdict, questionType, count });
+    });
+  });
+  return options.sort((left, right) => (
+    left.sourceVerdict.localeCompare(right.sourceVerdict) || left.questionType.localeCompare(right.questionType, "zh-CN")
+  ));
+}
+
+function getPaperBuilderKey(categoryName, sourceVerdict, questionType) {
+  return `${categoryName}||${sourceVerdict}||${questionType}`;
+}
+
+function getPaperBuilderCount(categoryName, sourceVerdict, questionType) {
+  const value = Number.parseInt(paperBuilderCounts[getPaperBuilderKey(categoryName, sourceVerdict, questionType)], 10);
   return Math.max(1, Math.min(20, Number.isFinite(value) ? value : 5));
 }
 
 function getSelectedPaperBuilderPairs() {
   return paperBuilderCategories.flatMap((categoryName) =>
-    (paperBuilderSelections[categoryName] || []).map((questionType) => ({
+    (paperBuilderSelections[categoryName] || []).map(({ sourceVerdict, questionType }) => ({
       categoryName,
+      sourceVerdict,
       questionType,
-      count: getPaperBuilderCount(categoryName, questionType),
+      count: getPaperBuilderCount(categoryName, sourceVerdict, questionType),
     })),
   );
 }
 
-function getWrongQuestionsForPaperType(categoryName, questionType, gradeLevel = "") {
-  return mistakeQuestions.filter(
-    (question) =>
-      question.category_name === categoryName &&
-      question.question_type === questionType &&
-      (!gradeLevel || String(question.grade_level) === String(gradeLevel)),
-  );
+function getPaperBuilderQuestionsForType(categoryName, questionType, gradeLevel = "", sourceVerdict = "") {
+  return getPaperBuilderSourceQuestions(categoryName, questionType, gradeLevel, sourceVerdict);
 }
 
 function buildQuestionSections(questions) {
@@ -1108,84 +1174,117 @@ function renderPaperBuilderPreview() {
   paperSheetBody.innerHTML = sections.map(renderPaperSection).join("");
 }
 
+function formatPaperBuilderOption(sourceVerdict, questionType) {
+  const label = `${getPaperBuilderSourceName(sourceVerdict)} \u00b7 ${questionType}`;
+  return label.length > 18 ? `${label.substring(0, 18)}...` : label;
+}
+
 function renderPaperBuilder() {
-  const wrongCount = mistakeQuestions.length;
+  const selectedSources = getSelectedPaperBuilderSources();
+  const sourceQuestions = getPaperBuilderSourceQuestions();
+  const wrongCount = sourceQuestions.filter((question) => getQuestionVerdict(question) === false).length;
+  const correctCount = sourceQuestions.filter((question) => getQuestionVerdict(question) === true).length;
   const selectedGrade = fullPaperGradeSelect.value;
-  builderTotal.textContent = `\u5171 ${wrongCount} \u9053\u9519\u9898\u53ef\u9009`;
+  builderTotal.textContent = `\u5df2\u9009 ${sourceQuestions.length} \u9053\u9898\uff08\u9519\u9898 ${wrongCount} \u00b7 \u6b63\u786e\u9898 ${correctCount}\uff09`;
   paperBuilderGroups.innerHTML = "";
 
   paperBuilderCategories.forEach((categoryName) => {
-    const typeCounts = getPaperBuilderTypeCounts(categoryName, selectedGrade);
-    const selectedTypes = paperBuilderSelections[categoryName] || [];
+    const typeOptions = getPaperBuilderTypeOptions(categoryName, selectedGrade);
+    const selectedPairs = paperBuilderSelections[categoryName] || [];
     const card = document.createElement("article");
     card.className = "paper-type-group";
 
-    const selectedText = selectedTypes.length
-      ? selectedTypes.map(t => t.length > 8 ? t.substring(0, 8) + '...' : t).join('\u3001')
-      : '\u8bf7\u9009\u62e9\u9898\u578b';
+    const triggerText = selectedPairs.length ? `\u5df2\u9009 ${selectedPairs.length} \u4e2a\u9898\u578b` : "\u8bf7\u9009\u62e9\u9898\u578b";
 
     card.innerHTML = `
-      <div class="paper-type-group-head"><div><h3>${escapeHtml(categoryName)}</h3><p>${typeCounts.length} \u4e2a\u7ec6\u9898\u578b</p></div><span>${selectedTypes.length ? `\u5df2\u9009 ${selectedTypes.length} \u4e2a` : "\u672a\u9009"}</span></div>
+      <div class="paper-type-group-head"><div><h3>${escapeHtml(categoryName)}</h3><p>${typeOptions.length} \u4e2a\u6765\u6e90\u9898\u578b</p></div><span>${selectedPairs.length ? `\u5df2\u9009 ${selectedPairs.length} \u4e2a` : "\u672a\u9009"}</span></div>
       <div class="paper-type-selector">
         ${
-          typeCounts.length
+          typeOptions.length
             ? `<div class="paper-custom-multiselect">
                 <button type="button" class="paper-multiselect-trigger" data-category-name="${escapeHtml(categoryName)}">
-                  <span class="paper-multiselect-value">${escapeHtml(selectedText)}</span>
+                  <span class="paper-multiselect-value">${escapeHtml(triggerText)}</span>
                   <span class="paper-multiselect-arrow">\u25bc</span>
                 </button>
                 <div class="paper-multiselect-dropdown" hidden>
-                  ${typeCounts.map(([questionType, count]) => {
-                    const isChecked = selectedTypes.includes(questionType);
+                  ${typeOptions.map((option) => {
+                    const isChecked = selectedPairs.some((pair) => (
+                      pair.sourceVerdict === option.sourceVerdict && pair.questionType === option.questionType
+                    ));
                     return `<label class="paper-multiselect-option">
-                      <input type="checkbox" value="${escapeHtml(questionType)}" ${isChecked ? 'checked' : ''} />
-                      <span>${escapeHtml(questionType)} <em>(${count}\u9053)</em></span>
+                      <input type="checkbox" data-source-verdict="${escapeHtml(option.sourceVerdict)}" data-question-type="${escapeHtml(option.questionType)}" ${isChecked ? "checked" : ""} />
+                      <span>${escapeHtml(getPaperBuilderSourceName(option.sourceVerdict))} \u00b7 ${escapeHtml(option.questionType)} <em>(${option.count}\u9053)</em></span>
                     </label>`;
-                  }).join('')}
+                  }).join("")}
                 </div>
               </div>
-              <div class="paper-type-counts-list">${selectedTypes.map(questionType => {
-                const key = getPaperBuilderKey(categoryName, questionType);
-                return `<label class="paper-type-count-item"><span>${escapeHtml(questionType)}:</span><span class="paper-type-count-control"><input type="number" min="1" max="20" value="${getPaperBuilderCount(categoryName, questionType)}" data-count-key="${escapeHtml(key)}" /><em>\u9898</em></span></label>`;
-              }).join('')}</div>`
-            : '<div class="type-check-empty">\u6682\u65e0\u53ef\u7528\u9519\u9898</div>'
+              <div class="paper-type-counts-list">${selectedPairs.map(({ sourceVerdict, questionType }) => {
+                const key = getPaperBuilderKey(categoryName, sourceVerdict, questionType);
+                return `<label class="paper-type-count-item"><span>${escapeHtml(getPaperBuilderSourceName(sourceVerdict))} \u00b7 ${escapeHtml(questionType)}:</span><span class="paper-type-count-control"><input type="number" min="1" max="20" value="${getPaperBuilderCount(categoryName, sourceVerdict, questionType)}" data-count-key="${escapeHtml(key)}" /><em>\u9898</em></span></label>`;
+              }).join("")}</div>`
+            : `<div class="type-check-empty">${selectedSources.length ? "\u6682\u65e0\u53ef\u7528\u9898\u578b" : "\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u79cd\u9898\u578b\u6765\u6e90"}</div>`
         }
       </div>
     `;
     paperBuilderGroups.appendChild(card);
   });
 
-  generatePaperQuestionsBtn.disabled = getSelectedPaperBuilderPairs().length === 0;
-  generateFullPaperBtn.disabled = wrongCount === 0;
+  generatePaperQuestionsBtn.disabled = selectedSources.length === 0 || getSelectedPaperBuilderPairs().length === 0;
+  generateFullPaperBtn.disabled = selectedSources.length === 0 || sourceQuestions.length === 0;
   renderPaperBuilderPreview();
+
+  // 恢复之前打开的下拉框
+  if (openPaperBuilderDropdown) {
+    const trigger = document.querySelector(`.paper-multiselect-trigger[data-category-name="${CSS.escape(openPaperBuilderDropdown)}"]`);
+    if (trigger) {
+      const dropdown = trigger.nextElementSibling;
+      if (dropdown) {
+        dropdown.hidden = false;
+      }
+    }
+  }
 }
 
 async function loadPaperBuilder() {
-  await loadMistakes();
-  renderPaperBuilder();
-  setStatus(text.loaded_builder);
+  setStatus(text.loading);
+  try {
+    const response = await fetch("/api/questions");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || text.failed_load);
+    paperBuilderQuestions = data.questions || [];
+    renderPaperBuilder();
+    setStatus(text.loaded_builder);
+  } catch (error) {
+    paperBuilderQuestions = [];
+    renderPaperBuilder();
+    setStatus(error.message);
+  }
 }
 
 function buildFullPaperPairs(gradeLevel) {
   const shortages = [];
   const pairs = paperBuilderCategories.flatMap((categoryName) => {
-    const types = getPaperBuilderTypeCounts(categoryName, gradeLevel);
+    const typeOptions = getPaperBuilderTypeOptions(categoryName, gradeLevel);
     const target = fullPaperTargets[categoryName];
-    if (types.length < target) {
-      shortages.push(`${categoryName}\u9700 ${target} \u79cd\u9898\u578b\uff0c\u5f53\u524d ${types.length} \u79cd`);
+    if (typeOptions.length < target) {
+      shortages.push(`${categoryName}\u9700 ${target} \u79cd\u9898\u578b\uff0c\u5f53\u524d\u53ef\u7528 ${typeOptions.length} \u79cd`);
       return [];
     }
-    return types
+    return typeOptions
       .sort(() => Math.random() - 0.5)
       .slice(0, target)
-      .map(([questionType]) => ({ categoryName, questionType, count: 1, gradeLevel }));
+      .map(({ sourceVerdict, questionType }) => ({ categoryName, sourceVerdict, questionType, count: 1, gradeLevel }));
   });
   return { pairs: shortages.length ? [] : pairs, shortages };
 }
 
 async function generatePaperFromPairs(pairs, sourceLabel) {
+  if (!getSelectedPaperBuilderSources().length) {
+    setStatus("请至少选择一种题型来源");
+    return;
+  }
   if (!pairs.length) {
-    setStatus("\u8bf7\u5148\u9009\u62e9\u8981\u751f\u6210\u7684\u9519\u9898\u9898\u578b");
+    setStatus("请先选择要生成的题型");
     return;
   }
 
@@ -1196,12 +1295,21 @@ async function generatePaperFromPairs(pairs, sourceLabel) {
   try {
     const generatedItems = [];
     for (const pair of pairs) {
-      const sourceQuestions = getWrongQuestionsForPaperType(pair.categoryName, pair.questionType, pair.gradeLevel);
+      const sourceQuestions = getPaperBuilderQuestionsForType(
+        pair.categoryName,
+        pair.questionType,
+        pair.gradeLevel,
+        pair.sourceVerdict,
+      );
       if (!sourceQuestions.length) continue;
       const response = await fetch("/api/generate-similar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question_ids: sourceQuestions.map((question) => Number(question.id)), count: pair.count }),
+        body: JSON.stringify({
+          question_ids: sourceQuestions.map((question) => Number(question.id)),
+          source_verdict: pair.sourceVerdict,
+          count: pair.count,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || text.failed_generate);
@@ -1212,19 +1320,22 @@ async function generatePaperFromPairs(pairs, sourceLabel) {
           grade_level: pair.gradeLevel || question.grade_level,
           category_name: question.category_name || pair.categoryName,
           question_type: question.question_type || pair.questionType,
+          source_verdict: pair.sourceVerdict,
           generated_at: new Date().toISOString(),
         });
       });
     }
-    if (!generatedItems.length) throw new Error("\u672a\u751f\u6210\u65b0\u9898\uff0c\u8bf7\u786e\u8ba4\u6240\u9009\u9898\u578b\u4e2d\u6709\u9519\u9898");
+    if (!generatedItems.length) throw new Error("未生成新题，请确认所选题型来源中有可用题目");
 
     paperBuilderGeneratedQuestions = generatedItems;
     generatedQuestions = [...generatedItems, ...generatedQuestions];
     persistGeneratedQuestions();
     await saveGeneratedPaperArchive(
       generatedItems,
-      `\u9519\u9898\u5de9\u56fa\u7ec3\u4e60 ${new Date().toLocaleString()}`,
-      sourceLabel || pairs.map((pair) => `${pair.categoryName} + ${pair.questionType}`).join("\uff1b"),
+      `${getPaperBuilderSourceLabel()}练习 ${new Date().toLocaleString()}`,
+      [getPaperBuilderSourceLabel(), sourceLabel || pairs.map((pair) => `${pair.categoryName} + ${pair.questionType}`).join("；")]
+        .filter(Boolean)
+        .join(" · "),
     );
     renderGeneratedQuestions();
     renderPaperBuilderPreview();
@@ -1580,6 +1691,13 @@ mistakeSearchInput.addEventListener("input", renderMistakes);
 generateMistakesBtn.addEventListener("click", () => generateFromMistakes());
 saveGeneratedPaperBtn.addEventListener("click", saveGeneratedPaper);
 generatePaperQuestionsBtn.addEventListener("click", () => generatePaperFromPairs(getSelectedPaperBuilderPairs()));
+paperSourceInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    paperBuilderSelections = {};
+    paperBuilderCounts = {};
+    renderPaperBuilder();
+  });
+});
 fullPaperGradeSelect.addEventListener("change", () => {
   paperBuilderSelections = {};
   paperBuilderCounts = {};
@@ -1591,7 +1709,7 @@ generateFullPaperBtn.addEventListener("click", () => {
   const { pairs, shortages } = buildFullPaperPairs(gradeLevel);
   console.log('Generated pairs:', pairs, 'Shortages:', shortages);
   if (shortages.length) {
-    setStatus(`${text[`grade_${gradeLevel}`]}\u9519\u9898\u9898\u578b\u4e0d\u8db3\uff1a${shortages.join("\uff1b")}`);
+    setStatus(`${text[`grade_${gradeLevel}`]}${getPaperBuilderSourceLabel()}\u4e0d\u8db3\uff1a${shortages.join("\uff1b")}`);
     return;
   }
   generatePaperFromPairs(pairs, `${text[`grade_${gradeLevel}`]}\u4e00\u952e\u5b8c\u6574\u8bd5\u5377`);
@@ -1611,46 +1729,27 @@ exportPaperPdfBtn.addEventListener("click", () => {
 paperBuilderGroups.addEventListener("change", (event) => {
   const checkbox = event.target.closest('.paper-multiselect-option input[type="checkbox"]');
   if (checkbox) {
-    const dropdown = checkbox.closest('.paper-multiselect-dropdown');
+    const dropdown = checkbox.closest(".paper-multiselect-dropdown");
     const trigger = dropdown.previousElementSibling;
     const categoryName = trigger.dataset.categoryName;
-    const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
-    const selectedTypes = [...checkboxes]
-      .filter(cb => cb.checked)
-      .map(cb => cb.value);
-
-    paperBuilderSelections[categoryName] = selectedTypes;
-
-    // 更新触发按钮的显示文本
-    const selectedText = selectedTypes.length
-      ? selectedTypes.map(t => t.length > 8 ? t.substring(0, 8) + '...' : t).join('、')
-      : '请选择题型';
-    trigger.querySelector('.paper-multiselect-value').textContent = selectedText;
-
-    // 更新状态标签
-    const statusBadge = trigger.closest('.paper-type-group').querySelector('.paper-type-group-head span');
-    if (statusBadge) {
-      statusBadge.textContent = selectedTypes.length ? `已选 ${selectedTypes.length} 个` : "未选";
-    }
-
-    // 更新数量配置列表
-    const countsList = dropdown.parentElement.nextElementSibling;
-    if (countsList && countsList.classList.contains('paper-type-counts-list')) {
-      countsList.innerHTML = selectedTypes.map(questionType => {
-        const key = getPaperBuilderKey(categoryName, questionType);
-        return `<label class="paper-type-count-item"><span>${escapeHtml(questionType)}:</span><span class="paper-type-count-control"><input type="number" min="1" max="20" value="${getPaperBuilderCount(categoryName, questionType)}" data-count-key="${escapeHtml(key)}" /><em>题</em></span></label>`;
-      }).join('');
-    }
+    paperBuilderSelections[categoryName] = [...dropdown.querySelectorAll('input[type="checkbox"]')]
+      .filter((item) => item.checked)
+      .map((item) => ({
+        sourceVerdict: item.dataset.sourceVerdict,
+        questionType: item.dataset.questionType,
+      }));
 
     paperBuilderGeneratedQuestions = [];
-    generatePaperQuestionsBtn.disabled = getSelectedPaperBuilderPairs().length === 0;
-
-    // 不要关闭下拉框，让用户可以继续选择
+    renderPaperBuilder();
     return;
   }
-  const countInput = event.target.closest('input[data-count-key]');
+
+  const countInput = event.target.closest("input[data-count-key]");
   if (countInput) {
-    paperBuilderCounts[countInput.dataset.countKey] = Math.max(1, Math.min(20, Number.parseInt(countInput.value, 10) || 5));
+    paperBuilderCounts[countInput.dataset.countKey] = Math.max(
+      1,
+      Math.min(20, Number.parseInt(countInput.value, 10) || 5),
+    );
     paperBuilderGeneratedQuestions = [];
     renderPaperBuilder();
   }
@@ -1659,6 +1758,7 @@ paperBuilderGroups.addEventListener("change", (event) => {
 paperBuilderGroups.addEventListener("click", (event) => {
   const trigger = event.target.closest('.paper-multiselect-trigger');
   if (trigger) {
+    event.stopPropagation();
     const dropdown = trigger.nextElementSibling;
     const isHidden = dropdown.hidden;
 
@@ -1668,6 +1768,14 @@ paperBuilderGroups.addEventListener("click", (event) => {
     });
 
     dropdown.hidden = !isHidden;
+    openPaperBuilderDropdown = dropdown.hidden ? null : trigger.dataset.categoryName;
+    return;
+  }
+
+  // 如果点击的是下拉框内部，阻止事件冒泡（防止外部点击事件关闭）
+  const dropdown = event.target.closest('.paper-multiselect-dropdown');
+  if (dropdown) {
+    event.stopPropagation();
     return;
   }
 });
@@ -1678,6 +1786,7 @@ document.addEventListener("click", (event) => {
     document.querySelectorAll('.paper-multiselect-dropdown').forEach(d => {
       d.hidden = true;
     });
+    openPaperBuilderDropdown = null;
   }
 });
 
@@ -1814,6 +1923,25 @@ clearBtn.addEventListener("click", () => {
   setStatus(text.waiting);
 });
 
+modelProviderSelect.addEventListener("change", async () => {
+  const provider = modelProviderSelect.value;
+  modelProviderSelect.disabled = true;
+  try {
+    const response = await fetch("/api/model-provider", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "切换模型失败");
+    renderModelProvider(data);
+    setStatus(`已切换至 ${data.label}，后续识别与出题将使用此模型`);
+  } catch (error) {
+    await loadModelProvider();
+    setStatus(error.message);
+  }
+});
+
 uploadResultFilters.addEventListener("click", (event) => {
   const button = event.target.closest(".result-filter[data-result-filter]");
   if (!button) return;
@@ -1869,3 +1997,4 @@ form.addEventListener("submit", async (event) => {
 });
 
 initText();
+loadModelProvider();

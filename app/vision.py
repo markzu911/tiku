@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-import os
+import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -10,10 +10,12 @@ import httpx
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
+from app.model_settings import get_active_model_config
 from app.question_ocr import extract_question_regions
 
 
 logger = logging.getLogger(__name__)
+CHOICE_OPTION_LINE_PATTERN = re.compile(r"^\s*[A-D][、.．）)]\s*")
 SUPPORTED_IMAGE_TYPES = {
     "image/jpeg",
     "image/png",
@@ -28,7 +30,11 @@ VISION_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ANALYSIS_BATCH_SIZE = 4
 
 
-async def extract_questions_from_image(file: UploadFile, grade_level: int) -> dict[str, Any]:
+async def extract_questions_from_image(
+    file: UploadFile,
+    grade_level: int,
+    allowed_category_names: list[str],
+) -> dict[str, Any]:
     if file.content_type not in SUPPORTED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="请上传 JPG、PNG、WebP、BMP、GIF 或 TIFF 格式的试卷图片")
 
@@ -54,12 +60,12 @@ async def extract_questions_from_image(file: UploadFile, grade_level: int) -> di
             "category_name": "",
             "question_type": "",
             "question_box": region["question_box"],
-            "has_image": True,
+            "has_image": False,
             "_image_bytes": _crop_question_image(image_bytes, region["question_box"]),
         }
         for region in regions
     ]
-    analyzed = await _analyze_question_images(questions, grade_level, image_mime_type)
+    analyzed = await _analyze_question_images(questions, grade_level, image_mime_type, allowed_category_names)
     for index, question in enumerate(questions):
         analysis = analyzed.get(index, {})
         for field in (
@@ -77,6 +83,10 @@ async def extract_questions_from_image(file: UploadFile, grade_level: int) -> di
         ):
             if field in analysis:
                 question[field] = analysis[field]
+        question["category_name"] = _allowed_category_name(analysis.get("category_name"), allowed_category_names)
+        question["question_type"] = _chinese_question_type(analysis.get("question_type"))
+        question["question_text"] = _without_embedded_choice_options(question["question_text"], question)
+        question["has_image"] = _as_bool(analysis.get("has_image")) is True
         question.pop("_image_bytes", None)
 
     return {"paper_title": "", "page_mark": "", "questions": questions}
@@ -86,21 +96,23 @@ async def _analyze_question_images(
     questions: list[dict[str, Any]],
     grade_level: int,
     image_mime_type: str,
+    allowed_category_names: list[str],
 ) -> dict[int, dict[str, Any]]:
-    api_key = os.getenv("OPENAI_API_KEY")
+    model_config = get_active_model_config()
+    api_key = model_config["api_key"]
     if not api_key:
-        logger.warning("OPENAI_API_KEY is not configured; storing OCR text without AI analysis")
+        logger.warning("%s is not configured; storing OCR text without AI analysis", model_config["label"])
         return {}
 
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.getenv("OPENAI_MODEL", "gpt-5.5")
+    base_url = model_config["base_url"]
+    model = model_config["model"]
     analyzed: dict[int, dict[str, Any]] = {}
     for start in range(0, len(questions), ANALYSIS_BATCH_SIZE):
         batch = questions[start : start + ANALYSIS_BATCH_SIZE]
         content = [
             {
                 "type": "text",
-                "text": _analysis_prompt(grade_level, start, batch),
+                "text": _analysis_prompt(grade_level, start, batch, allowed_category_names),
             }
         ]
         for offset, question in enumerate(batch):
@@ -146,19 +158,28 @@ async def _analyze_question_images(
     return analyzed
 
 
-def _analysis_prompt(grade_level: int, start: int, batch: list[dict[str, Any]]) -> str:
+def _analysis_prompt(
+    grade_level: int,
+    start: int,
+    batch: list[dict[str, Any]],
+    allowed_category_names: list[str],
+) -> str:
     indexes = list(range(start, start + len(batch)))
+    categories = "、".join(allowed_category_names) or "无"
     return f"""Analyze each complete question screenshot for a primary-school grade {grade_level} worksheet.
 
 Return JSON only:
-{{"questions":[{{"index":{indexes[0] if indexes else 0},"question_text":"","question_stem":"","answer":"","student_answer":"","is_correct":true,"A":"","B":"","C":"","D":"","category_name":"","question_type":""}}]}}
+{{"questions":[{{"index":{indexes[0] if indexes else 0},"question_text":"","question_stem":"","answer":"","student_answer":"","is_correct":true,"A":"","B":"","C":"","D":"","category_name":"","question_type":"","has_image":false}}]}}
 
 Rules:
 1. Each image is one complete question region. Read the image itself; OCR text is only a hint.
-2. Preserve all printed question text in question_text. Put a shared instruction in question_stem only when it is clearly present.
+2. Preserve all printed question text in question_text. For choice questions, question_text must contain only the stem; put A/B/C/D only in their separate fields and never repeat options in question_text. Put a shared instruction in question_stem only when it is clearly present.
 3. Read student work when visible. Set is_correct only when it can be determined; otherwise use null.
 4. Do not return image coordinates or image-cropping instructions.
-5. Use the supplied global indexes exactly: {indexes}.
+5. category_name must be exactly one of these existing Chinese categories: {categories}. Never invent, translate, or return an English category.
+6. question_type is an AI analysis of the knowledge point. You MUST return a concise Chinese label (e.g. "两位数乘法", "分数比较", "时间计算"). NEVER return English, pinyin, numbers-only, or an empty string. If uncertain, use a short Chinese description of the main math skill tested.
+7. Set has_image to true only when the question includes a printed diagram, table, chart, geometry figure, or object illustration needed for the question. Set it to false for pure text, answer blanks, ruled lines, and student handwriting.
+8. Use the supplied global indexes exactly: {indexes}.
 """
 
 
@@ -185,6 +206,44 @@ def _extract_json(text: str) -> dict[str, Any]:
         return json.loads(content[start : end + 1])
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=502, detail="模型返回的 JSON 格式不正确") from exc
+
+
+def _as_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str) and value.strip().lower() in {"true", "1"}:
+        return True
+    if isinstance(value, str) and value.strip().lower() in {"false", "0"}:
+        return False
+    return None
+
+
+def _allowed_category_name(value: Any, allowed_category_names: list[str]) -> str:
+    name = str(value or "").strip()
+    return name if name in allowed_category_names else "\u586b\u7a7a\u9898"
+
+
+def _chinese_question_type(value: Any) -> str:
+    name = str(value or "").strip()
+    if not name:
+        return ""
+    # Keep Chinese labels as-is
+    if any("\u4e00" <= character <= "\u9fff" for character in name):
+        return name
+    # If the AI returned English, keep it \u2014 better than showing "\u672a\u8bc6\u522b\u9898\u578b"
+    # But filter out obviously invalid values (very long text, pure numbers, coordinate-like strings)
+    if len(name) <= 30 and not name.isdigit() and not name.startswith(("[", "(", "{")):
+        return name
+    return ""
+
+
+def _without_embedded_choice_options(question_text: Any, question: dict[str, Any]) -> str:
+    text = str(question_text or "").strip()
+    if not any(str(question.get(key) or "").strip() for key in ("A", "B", "C", "D")):
+        return text
+    return "\n".join(line for line in text.splitlines() if not CHOICE_OPTION_LINE_PATTERN.match(line)).strip()
 
 
 def normalize_uploaded_image(image_bytes: bytes, mime_type: str | None) -> tuple[bytes, str]:

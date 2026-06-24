@@ -231,6 +231,48 @@ h2 {
   margin-top: 6px;
 }
 
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.model-provider-control {
+  display: grid;
+  gap: 4px;
+}
+
+.model-provider-control span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.model-provider-control select {
+  background: #ffffff;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 40px;
+  min-width: 190px;
+  padding: 0 10px;
+}
+
+.model-provider-control select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
+.model-provider-control select:disabled {
+  background: #f8fafc;
+  color: var(--muted);
+}
+
 .status,
 #countBadge {
   background: #f8fafc;
@@ -1809,6 +1851,11 @@ select:focus-visible,
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .topbar-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1826,6 +1873,12 @@ select:focus-visible,
   .result-panel,
   .question-browser {
     padding: 14px;
+  }
+
+  .topbar-actions,
+  .model-provider-control,
+  .model-provider-control select {
+    width: 100%;
   }
 
   h1 {
@@ -1913,6 +1966,54 @@ select:focus-visible,
   margin: 0;
 }
 
+.paper-source-mode p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.paper-source-options {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.paper-source-option {
+  align-content: center;
+  background: #f8fafc;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  gap: 2px 7px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 52px;
+  padding: 7px 9px;
+}
+
+.paper-source-option:has(input:checked) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.paper-source-option input {
+  accent-color: var(--blue);
+  grid-row: span 2;
+}
+
+.paper-source-option span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.paper-source-option em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
 .paper-full-grade {
   align-items: center;
   display: grid;
@@ -1971,11 +2072,13 @@ select:focus-visible,
 .paper-type-selector {
   display: grid;
   gap: 12px;
+  max-width: 100%;
 }
 
 .paper-custom-multiselect {
   position: relative;
   width: 100%;
+  max-width: 100%;
 }
 
 .paper-multiselect-trigger {
@@ -1988,11 +2091,11 @@ select:focus-visible,
   display: flex;
   justify-content: space-between;
   min-height: 42px;
-  padding: 0 12px;
+  min-width: 0;
+  padding: 8px 12px;
   text-align: left;
   transition: border-color 160ms ease, box-shadow 160ms ease;
   width: 100%;
-  max-width: 100%;
 }
 
 .paper-multiselect-trigger:hover {
@@ -2012,6 +2115,7 @@ select:focus-visible,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .paper-multiselect-arrow {
@@ -2033,11 +2137,14 @@ select:focus-visible,
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   left: 0;
   max-height: 280px;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 6px;
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
+  width: 100%;
   z-index: 10;
 }
 
@@ -2068,6 +2175,10 @@ select:focus-visible,
   color: var(--ink-soft);
   flex: 1;
   font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .paper-multiselect-option:has(input:checked) {

@@ -12,6 +12,30 @@ copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
+To access the project from another device on the same LAN, start it with:
+
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Then open `http://<this-computer's-LAN-IP>:8000/` from the other device. Allow inbound TCP port 8000 on the Windows Private network if prompted.
+
+## Run with Docker
+
+Docker Desktop must be running. This starts both the API and a persistent MySQL container. The application database is stored in the `exam-bank-mysql-data` Docker volume.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-stack.ps1
+```
+
+To copy the current host MySQL data into the Docker database once, run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\docker-stack.ps1 -MigrateHostData
+```
+
+Open `http://127.0.0.1:8000/`. Model credentials remain outside the image in `.env`.
+
 The default database is MySQL. Create a database named `exam_bank`, then set `.env`:
 
 ```env

@@ -20,6 +20,7 @@ def save_extracted_questions(
     paper_group_id: str | None = None,
     paper_group_name: str | None = None,
     paper_page_index: int | None = None,
+    allowed_category_names: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     saved_questions = []
     crop_cache = _QuestionCropCache(source_image)
@@ -56,10 +57,12 @@ def save_extracted_questions(
             student_answer = "未作答"
             is_correct = False
 
-        category = _get_or_create_category(db, _clean(item.get("category_name")))
+        category = _get_existing_category(db, _clean(item.get("category_name")), allowed_category_names)
         question_type = _get_or_create_question_type(db, _clean(item.get("question_type")))
         _update_question_type_stats(question_type, is_correct)
-        question_image, question_image_mime_type = crop_cache.crop(question_box)
+        question_image, question_image_mime_type = (
+            crop_cache.crop(question_box) if _as_bool(item.get("has_image")) is True else (None, None)
+        )
 
         question = Question(
             question_no=_clean(item.get("question_no")) or None,
@@ -194,16 +197,14 @@ def _create_paper(
     return paper
 
 
-def _get_or_create_category(db: Session, name: str) -> Category | None:
-    if not name:
+def _get_existing_category(
+    db: Session,
+    name: str,
+    allowed_category_names: list[str] | None,
+) -> Category | None:
+    if not name or (allowed_category_names is not None and name not in allowed_category_names):
         return None
-    category = db.query(Category).filter(Category.name == name).first()
-    if category:
-        return category
-    category = Category(name=name)
-    db.add(category)
-    db.flush()
-    return category
+    return db.query(Category).filter(Category.name == name).first()
 
 
 def _get_or_create_question_type(db: Session, name: str) -> QuestionType | None:
