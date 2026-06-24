@@ -153,6 +153,7 @@ const uploadResultFilters = document.querySelector("#uploadResultFilters");
 const statusNode = document.querySelector("#status");
 const modelProviderSelect = document.querySelector("#modelProviderSelect");
 const submitBtn = document.querySelector("#submitBtn");
+const cancelUploadBtn = document.querySelector("#cancelUploadBtn");
 const clearBtn = document.querySelector("#clearBtn");
 const pageTitle = document.querySelector("#pageTitle");
 const pageSubtitle = document.querySelector("#pageSubtitle");
@@ -237,6 +238,7 @@ let databaseQuestions = [];
 let papers = [];
 let questionTypes = [];
 let uploadQuestions = [];
+let uploadAbortController = null;
 let uploadResultFilter = "all";
 let databaseResultFilter = "all";
 let typeStatusFilter = "all";
@@ -408,7 +410,6 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
     const item = document.createElement("article");
     item.className = "question-item";
 
-    const orderText = `#${index + 1}`;
     const imageBadge =
       question.question_image_saved || question.has_image
         ? `<span class="badge-accent">${text.image_badge}</span>`
@@ -433,7 +434,6 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
 
     item.innerHTML = `
       <div class="question-meta">
-        <span>${escapeHtml(orderText)}</span>
         <span>${escapeHtml(question.grade_level || "")} \u5e74\u7ea7</span>
         <span>${escapeHtml(question.category_name || "\u586b\u7a7a\u9898")}</span>
         <span>${escapeHtml(question.question_type || question.category_name || "\u672a\u8bc6\u522b\u9898\u578b")}</span>
@@ -492,15 +492,32 @@ function isCorrectQuestion(question) {
 function renderUploadQuestions(questions = uploadQuestions) {
   uploadQuestions = questions;
   extractionState.hidden = true;
+
+  // \u4fdd\u6301\u670d\u52a1\u7aef\u8fd4\u56de\u7684\u987a\u5e8f\uff0c\u5373\u56fe\u7247\u4ece\u4e0a\u5230\u4e0b\u4ece\u5de6\u5230\u53f3\u7684\u626b\u63cf\u987a\u5e8f
   const filtered = uploadQuestions.filter((question) => {
     if (uploadResultFilter === "correct") return isCorrectQuestion(question);
     if (uploadResultFilter === "incorrect") {
-      return Boolean(question.student_answer) && !isCorrectQuestion(question);
+      return isCorrectQuestion(question) === false;
     }
     return true;
   });
   countBadge.textContent = `${filtered.length} / ${uploadQuestions.length} \u9898`;
   renderQuestionCards(questionList, emptyState, filtered);
+}
+
+function compareByQuestionNo(a, b) {
+  const parseNum = (raw) => {
+    const cleaned = String(raw || "").trim();
+    const parts = cleaned.split(".").map((part) => parseInt(part, 10));
+    return parts.every((p) => !isNaN(p)) ? parts : [Infinity];
+  };
+  const left = parseNum(a.question_no);
+  const right = parseNum(b.question_no);
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const diff = (left[i] || 0) - (right[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 function showExtractionState(fileCount) {
@@ -562,19 +579,13 @@ function getFilteredQuestions() {
     return matchesKeyword && matchesGrade && matchesCategory && matchesType && matchesPaper && matchesResult;
   });
 
-  if (!activePaperFilter) {
-    return filtered;
-  }
-
-  const pageOrder = new Map(
-    activePaperFilter.paperIds.map((paperId, index) => [Number(paperId), index]),
-  );
+  // 按试卷 → 页码 → 题号排序，匹配卷面原始顺序
   return filtered.sort((left, right) => {
-    const pageDifference =
-      (pageOrder.get(Number(left.paper_id)) ?? Number.MAX_SAFE_INTEGER) -
-      (pageOrder.get(Number(right.paper_id)) ?? Number.MAX_SAFE_INTEGER);
-    if (pageDifference !== 0) return pageDifference;
-    return Number(left.id) - Number(right.id);
+    const paperDiff = (left.paper_id || 0) - (right.paper_id || 0);
+    if (paperDiff !== 0) return paperDiff;
+    const pageDiff = (left.paper_page_index || 0) - (right.paper_page_index || 0);
+    if (pageDiff !== 0) return pageDiff;
+    return compareByQuestionNo(left, right);
   });
 }
 
@@ -1911,7 +1922,16 @@ dropzone.addEventListener("drop", (event) => {
   addSelectedFiles(event.dataTransfer.files);
 });
 
+cancelUploadBtn.addEventListener("click", () => {
+  if (uploadAbortController) {
+    uploadAbortController.abort();
+  }
+});
+
 clearBtn.addEventListener("click", () => {
+  if (uploadAbortController) {
+    uploadAbortController.abort();
+  }
   form.reset();
   selectedFiles = [];
   setPreview(null);
@@ -1972,13 +1992,16 @@ form.addEventListener("submit", async (event) => {
   submitBtn.disabled = true;
   submitBtn.classList.add("is-loading");
   submitBtn.setAttribute("aria-busy", "true");
+  cancelUploadBtn.hidden = false;
   showExtractionState(files.length);
   setStatus(files.length === 1 ? text.extracting : `\u6b63\u5728\u8bc6\u522b ${files.length} \u5f20\u8bd5\u5377`);
 
+  uploadAbortController = new AbortController();
   try {
     const response = await fetch("/api/extract-questions", {
       method: "POST",
       body: formData,
+      signal: uploadAbortController.signal,
     });
     const data = await response.json();
     if (!response.ok) {
@@ -1987,12 +2010,18 @@ form.addEventListener("submit", async (event) => {
     renderUploadQuestions(data.questions || []);
     setStatus(`\u5df2\u5165\u5e93 ${data.paper_count || files.length} \u5f20\u8bd5\u5377\uff0c${data.saved_count || 0} \u9898`);
   } catch (error) {
-    renderUploadQuestions([]);
-    setStatus(error.message);
+    if (error.name === "AbortError") {
+      setStatus("\u4e0a\u4f20\u5df2\u53d6\u6d88");
+    } else {
+      renderUploadQuestions([]);
+      setStatus(error.message);
+    }
   } finally {
+    uploadAbortController = null;
     submitBtn.disabled = false;
     submitBtn.classList.remove("is-loading");
     submitBtn.removeAttribute("aria-busy");
+    cancelUploadBtn.hidden = true;
   }
 });
 

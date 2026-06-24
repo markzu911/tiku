@@ -16,6 +16,11 @@ from app.question_ocr import extract_question_regions
 
 logger = logging.getLogger(__name__)
 CHOICE_OPTION_LINE_PATTERN = re.compile(r"^\s*[A-D][、.．）)]\s*")
+DIAGRAM_KEYWORD = re.compile(
+    r"如图|下图|上图|右图|左图|看图|表中|下表|上表|统计图|图表|线段图|示意图|"
+    r"条形图|折线图|饼图|图形|方格|格子|数一数|圈一圈|连一连|涂一涂|画一画|"
+    r"钟面|时钟|数轴|计数器|算盘|小棒|积木|七巧板|天平|尺子"
+)
 SUPPORTED_IMAGE_TYPES = {
     "image/jpeg",
     "image/png",
@@ -86,9 +91,12 @@ async def extract_questions_from_image(
         question["category_name"] = _allowed_category_name(analysis.get("category_name"), allowed_category_names)
         question["question_type"] = _chinese_question_type(analysis.get("question_type"))
         question["question_text"] = _without_embedded_choice_options(question["question_text"], question)
-        question["has_image"] = _as_bool(analysis.get("has_image")) is True
+        ai_has_image = _as_bool(analysis.get("has_image")) is True
+        text_has_image = DIAGRAM_KEYWORD.search(question["question_text"] + question.get("question_stem", "")) is not None
+        question["has_image"] = ai_has_image or text_has_image
         question.pop("_image_bytes", None)
 
+    questions = _split_final_merged_expressions(questions)
     return {"paper_title": "", "page_mark": "", "questions": questions}
 
 
@@ -178,7 +186,7 @@ Rules:
 4. Do not return image coordinates or image-cropping instructions.
 5. category_name must be exactly one of these existing Chinese categories: {categories}. Never invent, translate, or return an English category.
 6. question_type is an AI analysis of the knowledge point. You MUST return a concise Chinese label (e.g. "两位数乘法", "分数比较", "时间计算"). NEVER return English, pinyin, numbers-only, or an empty string. If uncertain, use a short Chinese description of the main math skill tested.
-7. Set has_image to true only when the question includes a printed diagram, table, chart, geometry figure, or object illustration needed for the question. Set it to false for pure text, answer blanks, ruled lines, and student handwriting.
+7. has_image is CRITICAL — it controls whether the question image is saved. Set has_image to true when the question contains ANY of: a printed diagram, chart, table, grid, geometric shape, number line, clock face, bar/line/pie chart, coordinate grid, object illustration, or visual counting aid. Even a small inline diagram counts. ONLY set false when the region is 100% text with nothing visual beyond answer blanks or ruled lines.
 8. Use the supplied global indexes exactly: {indexes}.
 """
 
@@ -218,6 +226,39 @@ def _as_bool(value: Any) -> bool | None:
     if isinstance(value, str) and value.strip().lower() in {"false", "0"}:
         return False
     return None
+
+
+# 最终兜底：拆分含多个 = 或 ≈ 的合并算式
+_FINAL_EXPRESSION = re.compile(r"[\d.]+[\s]*[+\-×÷/±xX][\s]*[\d.]+[\s]*[≈≒＝=]")
+
+
+def _split_final_merged_expressions(questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """最终防线：扫描每个题目的 question_text，含 ≥2 个算式则强制拆分"""
+    result: list[dict[str, Any]] = []
+    for question in questions:
+        text = str(question.get("question_text") or "")
+        matches = list(_FINAL_EXPRESSION.finditer(text))
+        if len(matches) < 2:
+            result.append(question)
+            continue
+
+        # 有小标号的不拆
+        if re.search(r"[(（]\s*\d{1,2}\s*[)）]", text) or re.search(r"[①-⑳]", text):
+            result.append(question)
+            continue
+
+        # 按算式拆分
+        for idx, match in enumerate(matches):
+            end_pos = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            expr_text = text[match.start():end_pos].strip().rstrip(";；。")
+            if not expr_text:
+                continue
+            new_q = dict(question)
+            new_q["question_text"] = expr_text
+            new_q["question_no"] = f"{question.get('question_no', '')}.{idx + 1}".lstrip(".")
+            new_q["question_box"] = dict(question.get("question_box") or {})
+            result.append(new_q)
+    return result
 
 
 def _allowed_category_name(value: Any, allowed_category_names: list[str]) -> str:

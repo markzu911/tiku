@@ -325,6 +325,7 @@ def _serialize_question(question: Question):
         "paper_name": question.paper.name if question.paper else "",
         "paper_group_id": question.paper.group_id if question.paper else "",
         "paper_group_name": question.paper.group_name if question.paper else "",
+        "paper_page_index": question.paper.page_index if question.paper else None,
         "has_image": has_image,
         "image_url": f"/api/questions/{question.id}/image" if has_image else "",
     }

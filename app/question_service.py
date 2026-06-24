@@ -45,6 +45,10 @@ def save_extracted_questions(
             }
         )
 
+    seen_texts: dict[str, Question] = {}
+    updated_count = 0
+    created_count = 0
+
     for item in extracted_questions:
         question_text = _clean(item.get("question_text"))
         question_box = _normalize_question_box(item.get("question_box"))
@@ -59,50 +63,103 @@ def save_extracted_questions(
 
         category = _get_existing_category(db, _clean(item.get("category_name")), allowed_category_names)
         question_type = _get_or_create_question_type(db, _clean(item.get("question_type")))
-        _update_question_type_stats(question_type, is_correct)
         question_image, question_image_mime_type = (
             crop_cache.crop(question_box) if _as_bool(item.get("has_image")) is True else (None, None)
         )
 
-        question = Question(
-            question_no=_clean(item.get("question_no")) or None,
-            question_box=json.dumps(question_box, ensure_ascii=False),
-            question_text=question_text,
-            answer=_clean(item.get("answer")),
-            student_answer=student_answer,
-            is_correct=is_correct,
-            A=_clean(item.get("A")) or None,
-            B=_clean(item.get("B")) or None,
-            C=_clean(item.get("C")) or None,
-            D=_clean(item.get("D")) or None,
-            grade_level=grade_level,
-            question_stem=_clean(item.get("question_stem")) or None,
-            question_image=question_image,
-            question_image_mime_type=question_image_mime_type,
-            paper=paper,
-            category=category,
-            type=question_type,
-        )
-        db.add(question)
-        db.flush()
+        # 去重：先在本次上传中查，再在数据库中查
+        existing = seen_texts.get(question_text) or _find_existing_question(db, question_text)
 
-        saved_item = dict(item)
-        saved_item.pop("_image_bytes", None)
-        saved_item.update(
-            {
-                "id": question.id,
-                "grade_level": grade_level,
-                "category_id": category.id if category else None,
-                "type_id": question_type.id if question_type else None,
-                "paper_id": paper.id if paper else None,
-                "paper_name": paper.name if paper else "",
-                "paper_group_id": paper.group_id if paper else "",
-                "paper_group_name": paper.group_name if paper else "",
-                "has_image": question.question_image is not None,
-                "question_image_saved": question.question_image is not None,
-                "image_url": f"/api/questions/{question.id}/image" if question.question_image else "",
-            }
-        )
+        if existing:
+            # 更新已有题目：先回退旧统计，再应用新统计
+            _reverse_question_type_stats(existing.type, existing.is_correct)
+            if existing.type_id != (question_type.id if question_type else None):
+                existing.type = question_type
+            _update_question_type_stats(existing.type, is_correct)
+
+            existing.question_no = _clean(item.get("question_no")) or None
+            existing.question_box = json.dumps(question_box, ensure_ascii=False)
+            existing.answer = _clean(item.get("answer"))
+            existing.student_answer = student_answer
+            existing.is_correct = is_correct
+            existing.A = _clean(item.get("A")) or None
+            existing.B = _clean(item.get("B")) or None
+            existing.C = _clean(item.get("C")) or None
+            existing.D = _clean(item.get("D")) or None
+            existing.grade_level = grade_level
+            existing.question_stem = _clean(item.get("question_stem")) or None
+            if question_image is not None:
+                existing.question_image = question_image
+                existing.question_image_mime_type = question_image_mime_type
+            existing.paper = paper
+            existing.category = category
+            db.flush()
+            updated_count += 1
+
+            saved_item = dict(item)
+            saved_item.pop("_image_bytes", None)
+            saved_item.update(
+                {
+                    "id": existing.id,
+                    "grade_level": grade_level,
+                    "category_id": category.id if category else None,
+                    "type_id": existing.type_id,
+                    "paper_id": paper.id if paper else None,
+                    "paper_name": paper.name if paper else "",
+                    "paper_group_id": paper.group_id if paper else "",
+                    "paper_group_name": paper.group_name if paper else "",
+                    "has_image": existing.question_image is not None,
+                    "question_image_saved": existing.question_image is not None,
+                    "image_url": f"/api/questions/{existing.id}/image" if existing.question_image else "",
+                    "_updated": True,
+                }
+            )
+        else:
+            # 新建题目
+            _update_question_type_stats(question_type, is_correct)
+
+            question = Question(
+                question_no=_clean(item.get("question_no")) or None,
+                question_box=json.dumps(question_box, ensure_ascii=False),
+                question_text=question_text,
+                answer=_clean(item.get("answer")),
+                student_answer=student_answer,
+                is_correct=is_correct,
+                A=_clean(item.get("A")) or None,
+                B=_clean(item.get("B")) or None,
+                C=_clean(item.get("C")) or None,
+                D=_clean(item.get("D")) or None,
+                grade_level=grade_level,
+                question_stem=_clean(item.get("question_stem")) or None,
+                question_image=question_image,
+                question_image_mime_type=question_image_mime_type,
+                paper=paper,
+                category=category,
+                type=question_type,
+            )
+            db.add(question)
+            db.flush()
+            seen_texts[question_text] = question
+            created_count += 1
+
+            saved_item = dict(item)
+            saved_item.pop("_image_bytes", None)
+            saved_item.update(
+                {
+                    "id": question.id,
+                    "grade_level": grade_level,
+                    "category_id": category.id if category else None,
+                    "type_id": question_type.id if question_type else None,
+                    "paper_id": paper.id if paper else None,
+                    "paper_name": paper.name if paper else "",
+                    "paper_group_id": paper.group_id if paper else "",
+                    "paper_group_name": paper.group_name if paper else "",
+                    "has_image": question.question_image is not None,
+                    "question_image_saved": question.question_image is not None,
+                    "image_url": f"/api/questions/{question.id}/image" if question.question_image else "",
+                }
+            )
+
         saved_questions.append(saved_item)
 
     db.commit()
@@ -236,3 +293,25 @@ def _update_question_type_stats(question_type: QuestionType | None, is_correct: 
     question_type.accuracy = (
         Decimal(question_type.correct_count * 100) / Decimal(question_type.total)
     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _reverse_question_type_stats(question_type: QuestionType | None, is_correct: Any) -> None:
+    """回退旧的题型统计，用于更新已有题目时先撤销旧记录"""
+    if question_type is None or is_correct is None:
+        return
+    if question_type.total > 0:
+        question_type.total -= 1
+    if is_correct is True and question_type.correct_count > 0:
+        question_type.correct_count -= 1
+    elif is_correct is False and question_type.error_count > 0:
+        question_type.error_count -= 1
+    question_type.accuracy = (
+        Decimal(question_type.correct_count * 100) / Decimal(question_type.total)
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if question_type.total > 0 else Decimal("0.00")
+
+
+def _find_existing_question(db: Session, question_text: str) -> Question | None:
+    """按题目文本查找已存在的题目"""
+    if not question_text:
+        return None
+    return db.query(Question).filter(Question.question_text == question_text).first()
