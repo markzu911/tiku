@@ -6,7 +6,9 @@ from typing import Any
 from PIL import Image
 from sqlalchemy.orm import Session
 
+from app.answer_validation import apply_answer_validation
 from app.models import Category, Paper, Question, QuestionType
+from app.question_filter import is_meaningful_question, normalize_question_candidate
 
 
 def save_extracted_questions(
@@ -49,7 +51,10 @@ def save_extracted_questions(
     updated_count = 0
     created_count = 0
 
-    for item in extracted_questions:
+    for raw_item in extracted_questions:
+        item = normalize_question_candidate(apply_answer_validation(raw_item))
+        if not is_meaningful_question(item):
+            continue
         question_text = _clean(item.get("question_text"))
         question_box = _normalize_question_box(item.get("question_box"))
         if not question_text or question_box is None:
@@ -57,9 +62,12 @@ def save_extracted_questions(
 
         student_answer = _clean(item.get("student_answer"))
         is_correct = _as_bool(item.get("is_correct"))
+        needs_review = _as_bool(item.get("needs_review")) is True
         if not student_answer:
             student_answer = "未作答"
             is_correct = False
+        if needs_review:
+            is_correct = None
 
         category = _get_existing_category(db, _clean(item.get("category_name")), allowed_category_names)
         question_type = _get_or_create_question_type(db, _clean(item.get("question_type")))
@@ -82,6 +90,10 @@ def save_extracted_questions(
             existing.answer = _clean(item.get("answer"))
             existing.student_answer = student_answer
             existing.is_correct = is_correct
+            existing.answer_source = _clean(item.get("answer_source")) or None
+            existing.answer_confidence = _as_confidence(item.get("answer_confidence"))
+            existing.needs_review = needs_review
+            existing.review_reason = _clean(item.get("review_reason")) or None
             existing.A = _clean(item.get("A")) or None
             existing.B = _clean(item.get("B")) or None
             existing.C = _clean(item.get("C")) or None
@@ -91,6 +103,9 @@ def save_extracted_questions(
             if question_image is not None:
                 existing.question_image = question_image
                 existing.question_image_mime_type = question_image_mime_type
+            elif _as_bool(item.get("has_image")) is False:
+                existing.question_image = None
+                existing.question_image_mime_type = None
             existing.paper = paper
             existing.category = category
             db.flush()
@@ -108,6 +123,13 @@ def save_extracted_questions(
                     "paper_name": paper.name if paper else "",
                     "paper_group_id": paper.group_id if paper else "",
                     "paper_group_name": paper.group_name if paper else "",
+                    "answer": _clean(item.get("answer")),
+                    "student_answer": student_answer,
+                    "is_correct": is_correct,
+                    "answer_source": existing.answer_source or "",
+                    "answer_confidence": float(existing.answer_confidence) if existing.answer_confidence is not None else None,
+                    "needs_review": existing.needs_review,
+                    "review_reason": existing.review_reason or "",
                     "has_image": existing.question_image is not None,
                     "question_image_saved": existing.question_image is not None,
                     "image_url": f"/api/questions/{existing.id}/image" if existing.question_image else "",
@@ -125,6 +147,10 @@ def save_extracted_questions(
                 answer=_clean(item.get("answer")),
                 student_answer=student_answer,
                 is_correct=is_correct,
+                answer_source=_clean(item.get("answer_source")) or None,
+                answer_confidence=_as_confidence(item.get("answer_confidence")),
+                needs_review=needs_review,
+                review_reason=_clean(item.get("review_reason")) or None,
                 A=_clean(item.get("A")) or None,
                 B=_clean(item.get("B")) or None,
                 C=_clean(item.get("C")) or None,
@@ -154,6 +180,13 @@ def save_extracted_questions(
                     "paper_name": paper.name if paper else "",
                     "paper_group_id": paper.group_id if paper else "",
                     "paper_group_name": paper.group_name if paper else "",
+                    "answer": _clean(item.get("answer")),
+                    "student_answer": student_answer,
+                    "is_correct": is_correct,
+                    "answer_source": question.answer_source or "",
+                    "answer_confidence": float(question.answer_confidence) if question.answer_confidence is not None else None,
+                    "needs_review": question.needs_review,
+                    "review_reason": question.review_reason or "",
                     "has_image": question.question_image is not None,
                     "question_image_saved": question.question_image is not None,
                     "image_url": f"/api/questions/{question.id}/image" if question.question_image else "",
@@ -228,6 +261,18 @@ def _as_bool(value: Any) -> bool | None:
     if isinstance(value, str) and value.strip().lower() in {"false", "0"}:
         return False
     return None
+
+
+def _as_confidence(value: Any) -> Decimal | None:
+    try:
+        confidence = Decimal(str(value))
+    except Exception:
+        return None
+    if confidence < 0:
+        return Decimal("0.00")
+    if confidence > 1:
+        return Decimal("1.00")
+    return confidence.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _create_paper(

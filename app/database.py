@@ -88,6 +88,14 @@ def _ensure_question_columns():
             connection.execute(text("ALTER TABLE question ADD COLUMN student_answer VARCHAR(500) NULL"))
         if "is_correct" not in columns:
             connection.execute(text("ALTER TABLE question ADD COLUMN is_correct BOOLEAN NULL"))
+        if "answer_source" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN answer_source VARCHAR(50) NULL"))
+        if "answer_confidence" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN answer_confidence DECIMAL(5, 2) NULL"))
+        if "needs_review" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN needs_review BOOLEAN NOT NULL DEFAULT FALSE"))
+        if "review_reason" not in columns:
+            connection.execute(text("ALTER TABLE question ADD COLUMN review_reason VARCHAR(500) NULL"))
         if "question_image" not in columns:
             connection.execute(text("ALTER TABLE question ADD COLUMN question_image LONGBLOB NULL"))
         if "question_image_mime_type" not in columns:

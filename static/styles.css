@@ -1469,6 +1469,34 @@ select:focus-visible,
   color: #b91c1c;
 }
 
+.question-meta .badge-answer-source {
+  font-weight: 800;
+}
+
+.question-meta .badge-answer-source.program {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.question-meta .badge-answer-source.ai {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.question-meta .badge-answer-source.manual {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.question-meta .badge-answer-source.review {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
 .stem {
   color: var(--muted);
   font-size: 13px;
@@ -2685,4 +2713,58 @@ select:focus-visible,
   .paper-sheet-meta {
     grid-template-columns: 1fr;
   }
+}
+
+/* 复核面板 */
+.review-bar {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.review-toggle-btn {
+  font-size: 12px;
+  min-height: 30px;
+}
+
+.review-panel {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  margin-top: 8px;
+  padding: 10px;
+}
+
+.review-panel label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.review-answer {
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  margin-left: 6px;
+  padding: 4px 8px;
+  width: 200px;
+}
+
+.review-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.review-actions button {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+/* 子题答案分行显示 */
+.answer-grid strong {
+  white-space: pre-line;
+  line-height: 1.6;
 }

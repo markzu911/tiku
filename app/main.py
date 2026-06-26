@@ -16,6 +16,7 @@ from app.database import CATEGORY_NAMES, get_db, init_db
 from app.generation import generate_similar_questions
 from app.model_settings import get_model_provider_status, set_active_model_provider
 from app.models import GeneratedPaper, Paper, Question, QuestionType
+from app.question_filter import is_meaningful_question
 from app.question_service import save_extracted_questions
 from app.vision import extract_questions_from_image, normalize_uploaded_image
 
@@ -89,9 +90,10 @@ def list_questions(db: Session = Depends(get_db)):
         .order_by(Question.id.desc())
         .all()
     )
+    meaningful = _meaningful_questions(questions)
     return {
-        "total": len(questions),
-        "questions": [_serialize_question(question) for question in questions],
+        "total": len(meaningful),
+        "questions": [_serialize_question(question) for question in meaningful],
     }
 
 
@@ -117,8 +119,12 @@ async def generate_similar(request: GenerateSimilarRequest, db: Session = Depend
     source_questions_in_db = [
         question
         for question in query.order_by(Question.id.desc()).limit(200).all()
-        if ("incorrect" in source_verdicts and question.is_correct is False)
-        or ("correct" in source_verdicts and question.is_correct is True)
+        if question.needs_review is not True
+        and _is_meaningful_question_model(question)
+        and (
+            ("incorrect" in source_verdicts and question.is_correct is False)
+            or ("correct" in source_verdicts and question.is_correct is True)
+        )
     ]
     if not source_questions_in_db:
         raise HTTPException(status_code=404, detail="no matching source questions found for generation")
@@ -230,6 +236,34 @@ def get_question_image(question_id: int, db: Session = Depends(get_db)):
     )
 
 
+class ReviewQuestionRequest(BaseModel):
+    answer: str | None = None
+    is_correct: bool | None = None
+    needs_review: bool = False
+    review_reason: str = ""
+
+
+@app.put("/api/questions/{question_id}/review")
+def review_question(question_id: int, body: ReviewQuestionRequest, db: Session = Depends(get_db)):
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if question is None:
+        raise HTTPException(status_code=404, detail="question not found")
+
+    if body.answer is not None:
+        question.answer = body.answer.strip()
+    if body.is_correct is not None:
+        question.is_correct = body.is_correct
+    question.needs_review = body.needs_review
+    if body.review_reason:
+        question.review_reason = body.review_reason
+    question.answer_source = "manual"
+    question.answer_confidence = 1.0
+
+    db.commit()
+    db.refresh(question)
+    return _serialize_question(question)
+
+
 @app.post("/api/extract-questions")
 async def extract_questions(
     grade_level: int = Form(...),
@@ -300,6 +334,8 @@ async def extract_questions(
 
 def _serialize_question(question: Question):
     has_image = question.question_image is not None
+    student_answer = question.student_answer or ""
+    is_unanswered = student_answer.strip() in ("", "未作答")
     try:
         question_box = json.loads(question.question_box) if question.question_box else None
     except json.JSONDecodeError:
@@ -311,9 +347,13 @@ def _serialize_question(question: Question):
         "question_text": question.question_text,
         "question_stem": question.question_stem or "",
         "answer": question.answer,
-        "student_answer": question.student_answer or "",
+        "student_answer": student_answer,
         "is_correct": question.is_correct,
-        "is_wrong": question.is_correct is False,
+        "is_wrong": question.is_correct is False or is_unanswered,
+        "answer_source": question.answer_source or "",
+        "answer_confidence": float(question.answer_confidence) if question.answer_confidence is not None else None,
+        "needs_review": bool(question.needs_review),
+        "review_reason": question.review_reason or "",
         "A": question.A or "",
         "B": question.B or "",
         "C": question.C or "",
@@ -329,6 +369,23 @@ def _serialize_question(question: Question):
         "has_image": has_image,
         "image_url": f"/api/questions/{question.id}/image" if has_image else "",
     }
+
+
+def _meaningful_questions(questions: list[Question]) -> list[Question]:
+    return [question for question in questions if _is_meaningful_question_model(question)]
+
+
+def _is_meaningful_question_model(question: Question) -> bool:
+    return is_meaningful_question(
+        {
+            "question_text": question.question_text,
+            "question_stem": question.question_stem or "",
+            "A": question.A or "",
+            "B": question.B or "",
+            "C": question.C or "",
+            "D": question.D or "",
+        }
+    )
 
 
 def _serialize_generated_paper(paper: GeneratedPaper):
@@ -364,9 +421,10 @@ def _serialize_paper_groups(papers: list[Paper]):
             }
 
         groups[key]["paper_ids"].append(paper.id)
-        groups[key]["question_count"] += len(paper.questions)
+        paper_questions = _meaningful_questions(paper.questions)
+        groups[key]["question_count"] += len(paper_questions)
         groups[key]["grade_levels"].extend(
-            question.grade_level for question in paper.questions if question.grade_level is not None
+            question.grade_level for question in paper_questions if question.grade_level is not None
         )
         groups[key]["images"].append(
             {
@@ -447,7 +505,11 @@ def _recalculate_question_type_stats(db: Session) -> None:
 
         verdicts = (
             db.query(Question.is_correct)
-            .filter(Question.type_id == question_type.id, Question.is_correct.is_not(None))
+            .filter(
+                Question.type_id == question_type.id,
+                Question.is_correct.is_not(None),
+                Question.needs_review.is_(False),
+            )
             .all()
         )
         total = len(verdicts)

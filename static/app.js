@@ -100,6 +100,11 @@ const text = {
   unknown: "\u672a\u8bc6\u522b",
   image_badge: "\u5e26\u56fe",
   paper_badge: "\u8bd5\u5377",
+  answer_program: "\u7a0b\u5e8f\u6821\u9a8c",
+  answer_program_checked: "\u8ba1\u7b97\u5df2\u6821\u9a8c",
+  answer_ai: "AI\u8bc6\u522b",
+  answer_manual: "\u5df2\u590d\u6838",
+  answer_review: "\u5f85\u590d\u6838",
   paper_question_count: "\u9898\u76ee\u6570",
   paper_image_count: "\u56fe\u7247\u6570",
   view_paper_questions: "\u67e5\u770b\u8be5\u8bd5\u5377\u9898\u76ee",
@@ -391,6 +396,40 @@ function renderMathText(value) {
   );
 }
 
+const SUB_MARKER_RE = /[(（]\s*\d{1,2}\s*[)）][\s、，,.:：]*/g;
+
+function formatSubText(text) {
+  if (!text) return "";
+  // 在小题标号前加换行，让每个小题独立一行
+  if (SUB_MARKER_RE.test(text)) {
+    return text
+      .replace(/([(（]\s*\d{1,2}\s*[)）])/g, "\n$1 ")
+      .replace(/\n{2,}/g, "\n")
+      .trim();
+  }
+  return text;
+}
+
+function formatSubAnswers(text) {
+  if (!text) return "";
+  const trimmed = text.trim();
+  // 如果包含小题标号，按标号分行
+  if (SUB_MARKER_RE.test(trimmed)) {
+    return trimmed
+      .replace(/([(（]\s*\d{1,2}\s*[)）])/g, "\n$1 ")
+      .replace(/\n{2,}/g, "\n")
+      .trim();
+  }
+  // 如果有分号分隔，序号标注
+  if (/[;；]/.test(trimmed)) {
+    const parts = trimmed.split(/[;；]\s*/).filter(Boolean);
+    if (parts.length >= 2) {
+      return parts.map((p, i) => `(${i + 1}) ${p.trim()}`).join("\n");
+    }
+  }
+  return trimmed;
+}
+
 function displayQuestionText(question) {
   const textValue = String(question.question_text || "");
   const hasSeparateOptions = ["A", "B", "C", "D"].some((key) => String(question[key] || "").trim());
@@ -400,6 +439,40 @@ function displayQuestionText(question) {
     .filter((line) => !/^\s*[A-D][、.．）)]\s*/.test(line))
     .join("\n")
     .trim();
+}
+
+function formatChoiceAnswer(letterOrText, question) {
+  const letter = String(letterOrText || "").trim().toUpperCase();
+  // 非选择题或非单字母答案，直接返回原文
+  if (!["A", "B", "C", "D"].includes(letter)) return letterOrText;
+  const optionText = String(question[letter] || "").trim();
+  return optionText ? `${letter}. ${optionText}` : letter;
+}
+
+function renderAnswerSourceBadge(question) {
+  const confidence =
+    typeof question.answer_confidence === "number"
+      ? ` ${Math.round(question.answer_confidence * 100)}%`
+      : "";
+  const reason = question.review_reason ? ` title="${escapeHtml(question.review_reason)}"` : "";
+  if (question.needs_review) {
+    return `<span class="badge-answer-source review"${reason}>${text.answer_review}</span>`;
+  }
+
+  const source = String(question.answer_source || "").trim();
+  if (source === "program") {
+    return `<span class="badge-answer-source program">${text.answer_program}</span>`;
+  }
+  if (source === "program_checked") {
+    return `<span class="badge-answer-source program">${text.answer_program_checked}</span>`;
+  }
+  if (source === "manual") {
+    return `<span class="badge-answer-source manual">${text.answer_manual}</span>`;
+  }
+  if (source === "ai") {
+    return `<span class="badge-answer-source ai">${text.answer_ai}${confidence}</span>`;
+  }
+  return "";
 }
 
 function renderQuestionCards(container, emptyNode, questions, options = {}) {
@@ -446,8 +519,8 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
       ${imageHtml}
       <div class="options">${optionsHtml}</div>
       <div class="answer-grid">
-        <div><span>${text.student_answer}</span><strong>${renderMathText(question.student_answer || text.unknown)}</strong></div>
-        <div><span>${text.correct_answer}</span><strong>${renderMathText(question.answer || text.unknown)}</strong></div>
+        <div><span>${text.student_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.student_answer, question)) || text.unknown)}</strong></div>
+        <div><span>${text.correct_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</strong></div>
       </div>
     `;
     container.appendChild(item);
@@ -455,6 +528,21 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
 }
 
 function getQuestionVerdict(question) {
+  const normalize = (value) =>
+    String(value || "")
+      .replaceAll("；", ";")
+      .replace(/\s+/g, "")
+      .trim()
+      .toLowerCase();
+  const studentAnswer = normalize(question.student_answer);
+  const answer = normalize(question.answer);
+  const unansweredValues = new Set(["", normalize(text.unknown), normalize("未作答")]);
+  const unknownAnswerValues = new Set(["", normalize(text.unknown), normalize("未识别")]);
+
+  if (unansweredValues.has(studentAnswer)) {
+    return false;
+  }
+
   if (typeof question.is_correct === "boolean") {
     return question.is_correct;
   }
@@ -471,16 +559,8 @@ function getQuestionVerdict(question) {
     if (modelVerdict === "false") return false;
   }
 
-  const normalize = (value) =>
-    String(value || "")
-      .replaceAll("；", ";")
-      .replace(/\s+/g, "")
-      .trim()
-      .toLowerCase();
-  const studentAnswer = normalize(question.student_answer);
-  const answer = normalize(question.answer);
-  if (studentAnswer === "" || answer === "") {
-    return null;
+  if (unknownAnswerValues.has(answer)) {
+    return false;
   }
   return studentAnswer === answer;
 }
@@ -873,8 +953,8 @@ function renderMistakes() {
       ${question.image_url ? `<img class="question-image" src="${escapeHtml(question.image_url)}" alt="question image" loading="lazy" />` : ""}
       <div class="options">${optionsHtml}</div>
       <div class="answer-grid">
-        <div><span>${text.student_answer}</span><strong>${renderMathText(question.student_answer || text.unknown)}</strong></div>
-        <div><span>${text.correct_answer}</span><strong>${renderMathText(question.answer || text.unknown)}</strong></div>
+        <div><span>${text.student_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.student_answer, question)) || text.unknown)}</strong></div>
+        <div><span>${text.correct_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</strong></div>
       </div>
       <div class="question-command"><button class="secondary generate-one-button" type="button" data-question-id="${escapeHtml(question.id)}">${text.generate_one_button}</button></div>
     `;
@@ -905,7 +985,7 @@ function renderGeneratedQuestions() {
       ${question.image_url ? `<img class="question-image generated-question-image" src="${escapeHtml(question.image_url)}" alt="generated question image" loading="lazy" />` : ""}
       <div class="options">${optionsHtml}</div>
       <div class="generated-answer-stack">
-        <div><span>${text.correct_answer}</span><strong>${renderMathText(question.answer || text.unknown)}</strong></div>
+        <div><span>${text.correct_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</strong></div>
         <div><span>${text.analysis_label}</span><strong>${renderMathText(question.analysis || text.unknown)}</strong></div>
       </div>
     `;
@@ -938,7 +1018,7 @@ function renderMistakeGeneratedQuestions(questions) {
       ${question.image_url ? `<img class="question-image generated-question-image" src="${escapeHtml(question.image_url)}" alt="generated question image" loading="lazy" />` : ""}
       <div class="options">${optionsHtml}</div>
       <div class="generated-answer-stack">
-        <div><span>${text.correct_answer}</span><strong>${renderMathText(question.answer || text.unknown)}</strong></div>
+        <div><span>${text.correct_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</strong></div>
         <div><span>${text.analysis_label}</span><strong>${renderMathText(question.analysis || text.unknown)}</strong></div>
       </div>
     `;
@@ -1383,7 +1463,7 @@ function renderGeneratedPaperDetail(paper) {
     .map(
       (section, index) => `<section class="paper-section answer-section"><h3>${["\u4e00", "\u4e8c", "\u4e09", "\u56db", "\u4e94", "\u516d"][index] || index + 1}\u3001${escapeHtml(section.categoryName)}</h3><div class="paper-question-list">${section.questions
         .map(
-          (question, questionIndex) => `<div class="answer-question"><div class="paper-question-line"><span class="paper-question-number">${questionIndex + 1}.</span><div class="paper-question-content">${renderMathText(question.question_text || "")}</div></div><div class="answer-detail"><div><strong>${text.correct_answer}\uff1a</strong><span>${renderMathText(question.answer || text.unknown)}</span></div><div><strong>${text.analysis_label}\uff1a</strong><span>${renderMathText(question.analysis || text.unknown)}</span></div></div></div>`,
+          (question, questionIndex) => `<div class="answer-question"><div class="paper-question-line"><span class="paper-question-number">${questionIndex + 1}.</span><div class="paper-question-content">${renderMathText(question.question_text || "")}</div></div><div class="answer-detail"><div><strong>${text.correct_answer}\uff1a</strong><span>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</span></div><div><strong>${text.analysis_label}\uff1a</strong><span>${renderMathText(question.analysis || text.unknown)}</span></div></div></div>`,
         )
         .join("")}</div></section>`,
     )
@@ -1922,11 +2002,20 @@ dropzone.addEventListener("drop", (event) => {
   addSelectedFiles(event.dataTransfer.files);
 });
 
-cancelUploadBtn.addEventListener("click", () => {
+let _uploadCancelled = false;
+window._cancelUpload = () => {
+  _uploadCancelled = true;
   if (uploadAbortController) {
     uploadAbortController.abort();
+    uploadAbortController = null;
   }
-});
+  setStatus("上传已取消");
+  submitBtn.disabled = false;
+  submitBtn.classList.remove("is-loading");
+  submitBtn.removeAttribute("aria-busy");
+  if (cancelUploadBtn) cancelUploadBtn.style.display = "none";
+  extractionState.hidden = true;
+};
 
 clearBtn.addEventListener("click", () => {
   if (uploadAbortController) {
@@ -1992,36 +2081,41 @@ form.addEventListener("submit", async (event) => {
   submitBtn.disabled = true;
   submitBtn.classList.add("is-loading");
   submitBtn.setAttribute("aria-busy", "true");
-  cancelUploadBtn.hidden = false;
+  if (cancelUploadBtn) cancelUploadBtn.style.display = "";
   showExtractionState(files.length);
   setStatus(files.length === 1 ? text.extracting : `\u6b63\u5728\u8bc6\u522b ${files.length} \u5f20\u8bd5\u5377`);
 
   uploadAbortController = new AbortController();
+  _uploadCancelled = false;
   try {
     const response = await fetch("/api/extract-questions", {
       method: "POST",
       body: formData,
       signal: uploadAbortController.signal,
     });
+    if (_uploadCancelled) return;
     const data = await response.json();
+    if (_uploadCancelled) return;
     if (!response.ok) {
       throw new Error(data.detail || text.failed_extract);
     }
     renderUploadQuestions(data.questions || []);
     setStatus(`\u5df2\u5165\u5e93 ${data.paper_count || files.length} \u5f20\u8bd5\u5377\uff0c${data.saved_count || 0} \u9898`);
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (_uploadCancelled || (error.name === "AbortError")) {
       setStatus("\u4e0a\u4f20\u5df2\u53d6\u6d88");
     } else {
       renderUploadQuestions([]);
       setStatus(error.message);
     }
   } finally {
+    _uploadCancelled = false;
     uploadAbortController = null;
     submitBtn.disabled = false;
     submitBtn.classList.remove("is-loading");
     submitBtn.removeAttribute("aria-busy");
-    cancelUploadBtn.hidden = true;
+    if (cancelUploadBtn) cancelUploadBtn.style.display = "none";
+    extractionState.hidden = true;
   }
 });
 
