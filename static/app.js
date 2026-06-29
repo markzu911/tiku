@@ -96,6 +96,13 @@ const text = {
   type_filter_label: "\u9898\u578b",
   clear_filters: "\u6e05\u9664\u7b5b\u9009",
   correct_answer: "\u6b63\u786e\u7b54\u6848",
+  edit_correct_answer: "\u4fee\u6539\u6b63\u786e\u7b54\u6848",
+  save_answer: "\u4fdd\u5b58\u7b54\u6848",
+  cancel_answer_edit: "\u53d6\u6d88",
+  manual_answer_placeholder: "\u8f93\u5165\u6b63\u786e\u7b54\u6848",
+  manual_answer_saved: "\u6b63\u786e\u7b54\u6848\u5df2\u4fdd\u5b58",
+  manual_answer_empty: "\u8bf7\u8f93\u5165\u6b63\u786e\u7b54\u6848",
+  manual_answer_failed: "\u4fdd\u5b58\u7b54\u6848\u5931\u8d25",
   student_answer: "\u5b66\u751f\u7b54\u6848",
   unknown: "\u672a\u8bc6\u522b",
   image_badge: "\u5e26\u56fe",
@@ -430,15 +437,36 @@ function formatSubAnswers(text) {
   return trimmed;
 }
 
+function formatQuestionNumberLines(value) {
+  const lines = String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const groups = [];
+  const questionNumber = /^(?:\d{1,2}[.\uFF0E\u3001]|[\uFF08(]\s*\d{1,2}\s*[\uFF09)])/;
+
+  lines.forEach((line) => {
+    if (questionNumber.test(line) || groups.length === 0) {
+      groups.push(line);
+    } else {
+      groups[groups.length - 1] += ` ${line}`;
+    }
+  });
+
+  return groups.join("\n");
+}
+
 function displayQuestionText(question) {
   const textValue = String(question.question_text || "");
   const hasSeparateOptions = ["A", "B", "C", "D"].some((key) => String(question[key] || "").trim());
-  if (!hasSeparateOptions) return textValue;
-  return textValue
+  if (!hasSeparateOptions) return formatQuestionNumberLines(textValue);
+  return formatQuestionNumberLines(
+    textValue
     .split(/\r?\n/)
     .filter((line) => !/^\s*[A-D][、.．）)]\s*/.test(line))
     .join("\n")
-    .trim();
+    .trim(),
+  );
 }
 
 function formatChoiceAnswer(letterOrText, question) {
@@ -450,28 +478,6 @@ function formatChoiceAnswer(letterOrText, question) {
 }
 
 function renderAnswerSourceBadge(question) {
-  const confidence =
-    typeof question.answer_confidence === "number"
-      ? ` ${Math.round(question.answer_confidence * 100)}%`
-      : "";
-  const reason = question.review_reason ? ` title="${escapeHtml(question.review_reason)}"` : "";
-  if (question.needs_review) {
-    return `<span class="badge-answer-source review"${reason}>${text.answer_review}</span>`;
-  }
-
-  const source = String(question.answer_source || "").trim();
-  if (source === "program") {
-    return `<span class="badge-answer-source program">${text.answer_program}</span>`;
-  }
-  if (source === "program_checked") {
-    return `<span class="badge-answer-source program">${text.answer_program_checked}</span>`;
-  }
-  if (source === "manual") {
-    return `<span class="badge-answer-source manual">${text.answer_manual}</span>`;
-  }
-  if (source === "ai") {
-    return `<span class="badge-answer-source ai">${text.answer_ai}${confidence}</span>`;
-  }
   return "";
 }
 
@@ -497,6 +503,24 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
         : verdict === false
           ? '<span class="badge-verdict incorrect">\u9519\u8bef</span>'
           : "";
+    const questionId = Number(question.id || 0);
+    const manualAnswerPanel = questionId
+      ? `
+        <div class="review-bar" data-question-id="${questionId}">
+          <button type="button" class="secondary review-toggle-btn" data-answer-edit>${text.edit_correct_answer}</button>
+          <div class="review-panel" hidden>
+            <label>
+              ${text.correct_answer}
+              <input class="review-answer" data-answer-input value="${escapeHtml(question.answer || "")}" placeholder="${text.manual_answer_placeholder}" />
+            </label>
+            <div class="review-actions">
+              <button type="button" data-answer-save>${text.save_answer}</button>
+              <button type="button" class="secondary" data-answer-cancel>${text.cancel_answer_edit}</button>
+            </div>
+          </div>
+        </div>
+      `
+      : "";
     const imageHtml = question.image_url
       ? `<img class="question-image" src="${escapeHtml(question.image_url)}" alt="question image" loading="lazy" />`
       : "";
@@ -513,6 +537,7 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
         ${paperBadge}
         ${imageBadge}
         ${verdictBadge}
+        ${renderAnswerSourceBadge(question)}
       </div>
       <div class="stem">${renderMathText(question.question_stem || "")}</div>
       <div class="question-text">${renderMathText(displayQuestionText(question))}</div>
@@ -520,11 +545,107 @@ function renderQuestionCards(container, emptyNode, questions, options = {}) {
       <div class="options">${optionsHtml}</div>
       <div class="answer-grid">
         <div><span>${text.student_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.student_answer, question)) || text.unknown)}</strong></div>
-        <div><span>${text.correct_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</strong></div>
+        <div><span>${text.correct_answer}</span><strong>${renderMathText(formatSubAnswers(formatChoiceAnswer(question.answer, question)) || text.unknown)}</strong>${manualAnswerPanel}</div>
       </div>
     `;
     container.appendChild(item);
   });
+}
+
+function replaceQuestionById(questions, updatedQuestion) {
+  const questionId = Number(updatedQuestion.id || 0);
+  const index = questions.findIndex((question) => Number(question.id || 0) === questionId);
+  if (index >= 0) {
+    questions[index] = { ...questions[index], ...updatedQuestion };
+  }
+}
+
+function updateQuestionInLocalLists(updatedQuestion) {
+  replaceQuestionById(databaseQuestions, updatedQuestion);
+  replaceQuestionById(uploadQuestions, updatedQuestion);
+  updateStats(databaseQuestions);
+}
+
+function refreshQuestionListsAfterManualAnswer() {
+  renderUploadQuestions(uploadQuestions);
+  renderDatabaseQuestions();
+}
+
+function setManualAnswerControlsDisabled(panel, disabled) {
+  panel.querySelectorAll("button, input").forEach((node) => {
+    node.disabled = disabled;
+  });
+}
+
+async function saveManualAnswer(reviewBar) {
+  if (!reviewBar) return;
+  const questionId = Number(reviewBar.dataset.questionId || 0);
+  const panel = reviewBar.querySelector(".review-panel");
+  const input = reviewBar.querySelector("[data-answer-input]");
+  const answer = input.value.trim();
+  if (!questionId || !panel) return;
+  if (!answer) {
+    setStatus(text.manual_answer_empty);
+    input.focus();
+    return;
+  }
+
+  setManualAnswerControlsDisabled(panel, true);
+  try {
+    const response = await fetch(`/api/questions/${questionId}/review`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer, needs_review: false, review_reason: "" }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || text.manual_answer_failed);
+    }
+    updateQuestionInLocalLists(data);
+    refreshQuestionListsAfterManualAnswer();
+    setStatus(text.manual_answer_saved);
+  } catch (error) {
+    setManualAnswerControlsDisabled(panel, false);
+    setStatus(error.message || text.manual_answer_failed);
+  }
+}
+
+function handleManualAnswerClick(event) {
+  const editButton = event.target.closest("[data-answer-edit]");
+  if (editButton) {
+    const panel = editButton.closest(".review-bar")?.querySelector(".review-panel");
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      panel.querySelector("[data-answer-input]")?.focus();
+    }
+    return;
+  }
+
+  const cancelButton = event.target.closest("[data-answer-cancel]");
+  if (cancelButton) {
+    const panel = cancelButton.closest(".review-panel");
+    if (panel) panel.hidden = true;
+    return;
+  }
+
+  const saveButton = event.target.closest("[data-answer-save]");
+  if (saveButton) {
+    saveManualAnswer(saveButton.closest(".review-bar"));
+  }
+}
+
+function handleManualAnswerKeydown(event) {
+  const input = event.target.closest("[data-answer-input]");
+  if (!input) return;
+  if (event.key === "Escape") {
+    input.closest(".review-panel").hidden = true;
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    saveManualAnswer(input.closest(".review-bar"));
+  }
 }
 
 function getQuestionVerdict(question) {
@@ -1760,6 +1881,11 @@ navItems.forEach((item) => {
 [searchInput, gradeFilter, categoryFilter, typeFilter].forEach((node) => {
   node.addEventListener("input", renderDatabaseQuestions);
   node.addEventListener("change", renderDatabaseQuestions);
+});
+
+[questionList, dbQuestionList].forEach((node) => {
+  node.addEventListener("click", handleManualAnswerClick);
+  node.addEventListener("keydown", handleManualAnswerKeydown);
 });
 
 refreshQuestionsBtn.addEventListener("click", loadDatabaseQuestions);

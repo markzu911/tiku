@@ -249,16 +249,23 @@ def review_question(question_id: int, body: ReviewQuestionRequest, db: Session =
     if question is None:
         raise HTTPException(status_code=404, detail="question not found")
 
+    answer_was_provided = body.answer is not None
     if body.answer is not None:
-        question.answer = body.answer.strip()
+        manual_answer = body.answer.strip()
+        if not manual_answer:
+            raise HTTPException(status_code=400, detail="answer cannot be empty")
+        question.answer = manual_answer
     if body.is_correct is not None:
         question.is_correct = body.is_correct
+    elif answer_was_provided:
+        question.is_correct = _answers_match(question.student_answer, question.answer)
     question.needs_review = body.needs_review
-    if body.review_reason:
-        question.review_reason = body.review_reason
+    question.review_reason = body.review_reason.strip() or None
     question.answer_source = "manual"
     question.answer_confidence = 1.0
 
+    db.flush()
+    _recalculate_question_type_stats(db)
     db.commit()
     db.refresh(question)
     return _serialize_question(question)
@@ -494,6 +501,34 @@ def _serialize_question_type(question_type: QuestionType):
         "error_rate": error_rate,
         "priority": question_type.priority or "",
     }
+
+
+def _answers_match(student_answer: str | None, answer: str | None) -> bool:
+    expected = _normalize_answer_for_compare(answer)
+    actual = _normalize_answer_for_compare(student_answer)
+    unanswered_values = {
+        "",
+        _normalize_answer_for_compare("\u672a\u4f5c\u7b54"),
+        _normalize_answer_for_compare("\u672a\u8bc6\u522b"),
+        "unknown",
+    }
+    if not expected or actual in unanswered_values:
+        return False
+    return actual == expected
+
+
+def _normalize_answer_for_compare(value: str | None) -> str:
+    replacements = str.maketrans(
+        {
+            "\uff1b": ";",
+            "\uff1e": ">",
+            "\uff1c": "<",
+            "\uff1d": "=",
+            "\uff08": "(",
+            "\uff09": ")",
+        }
+    )
+    return "".join(str(value or "").translate(replacements).split()).lower()
 
 
 def _recalculate_question_type_stats(db: Session) -> None:

@@ -1502,7 +1502,7 @@ select:focus-visible,
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 .question-text {
@@ -1549,7 +1549,7 @@ select:focus-visible,
   padding-top: 12px;
 }
 
-.answer-grid div {
+.answer-grid > div {
   background: #f8fafc;
   border: 1px solid #e8eef6;
   border-radius: var(--radius);
@@ -2715,21 +2715,20 @@ select:focus-visible,
   }
 }
 
-/* 复核面板 */
+/* 正确答案编辑 */
 .review-bar {
-  border-top: 1px solid var(--line);
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 8px;
 }
 
 .review-toggle-btn {
+  align-self: flex-start;
   font-size: 12px;
   min-height: 30px;
 }
 
 .review-panel {
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
+  background: #ffffff;
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   margin-top: 8px;
   padding: 10px;
@@ -2745,11 +2744,12 @@ select:focus-visible,
 .review-answer {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
+  display: block;
   font: inherit;
   font-size: 13px;
-  margin-left: 6px;
+  margin-top: 6px;
   padding: 4px 8px;
-  width: 200px;
+  width: min(100%, 420px);
 }
 
 .review-actions {

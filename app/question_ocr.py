@@ -15,6 +15,7 @@ BARE_TOP_LEVEL_NUMBER = re.compile(r"^\s*(\d{1,2})\s+(?=\S)")
 OPTION_LINE_PATTERN = re.compile(r"^\s*[A-D]\s*[\.．、)）]")
 CHOICE_OPTION_PATTERN = re.compile(r"^\s*[A-D]\s*[\.．、)）]")
 ANSWER_BLANK_PATTERN = re.compile(r"[（(]\s*[）)]")
+ANSWER_BLANK_FRAGMENT_PATTERN = re.compile(r"[（(]\s*(?:[）)]|$)")
 QUESTION_START_HINT = re.compile(
     r"[（(]\s*[）)]|(?:下面|下列|选项|正确|错误|表示|算式|图形|钟面|时刻|方法|路线|最大|最小|共有|多少|哪|什么)"
 )
@@ -594,6 +595,13 @@ def _is_comparison_title_line(text: str) -> bool:
     """检测如'3、比大小（在○里填上 >、< 或 =）'的比较标题行"""
     stripped = text.strip()
     if not _COMPARISON_TITLE_KEYWORD.search(stripped):
+        return False
+    if (
+        ANSWER_BLANK_PATTERN.search(stripped)
+        or ANSWER_BLANK_FRAGMENT_PATTERN.search(stripped)
+        or "？" in stripped
+        or "?" in stripped
+    ):
         return False
     # 确保以题号或中文序号开头，避免误判普通内容行
     if TOP_LEVEL_NUMBER.match(stripped):
